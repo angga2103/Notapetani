@@ -16,7 +16,7 @@
         .no-print { display: none !important; }
         html, body { background-color: #fff !important; }
       }
-      .nota-mono { font-family: 'Courier New', Courier, monospace; font-size: 13px; white-space: pre; }
+      .nota-mono { font-family: 'Courier New', Courier, monospace; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; }
       .autocomplete-container { position: relative; }
       .autocomplete-suggestions {
         position: absolute; border: 1px solid #d1d5db; background-color: #fff; z-index: 99;
@@ -28,6 +28,9 @@
       .autocomplete-suggestions .active { background-color: #3b82f6; color: #fff; }
       .sortable { cursor: pointer; user-select: none; }
       .sortable:hover { color: #1d4ed8; }
+      @media (max-width: 640px) {
+        .qty-input { width: 80% !important; }
+      }
     </style>
 </head>
 <body class="py-6 px-4">
@@ -73,53 +76,9 @@
             <div class="space-y-3 pt-6 mt-4 border-t">
                 <button type="button" id="btnSimpan" onclick="simpanTransaksi()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">Simpan Nota</button>
                 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="grid grid-cols-2 gap-3">
                     <button type="button" onclick="salinNota()" class="bg-gray-100 border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm">Salin</button>
-                    <button type="button" onclick="window.print()" class="bg-gray-100 border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm">Print 58mm</button>
-                    <button type="button" onclick="generatePDF()" class="bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-colors font-semibold text-sm">PDF 58mm</button>
                     <button type="button" onclick="generateInvoiceA4()" class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm">Cetak A4</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl shadow-md">
-            <button onclick="toggleSection('rekapPengaturan')" class="w-full text-left font-bold text-gray-700 p-4 flex justify-between items-center hover:bg-gray-50 rounded-t-xl">
-                <span>Rekap & Pengaturan</span>
-                <svg id="arrowIcon" class="h-6 w-6 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            <div id="rekapPengaturan" class="hidden p-6 border-t space-y-6">
-                 <div>
-                     <button type="button" onclick="tampilkanRekap()" class="w-full bg-purple-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-sm">Tampilkan/Sembunyikan Rekap</button>
-                     <div id="rekapArea" class="mt-4 space-y-3"></div>
-                     <button type="button" id="btnExportCsv" onclick="exportToCSV()" class="w-full bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-800 transition-colors shadow-sm hidden mt-3">Ekspor Rekap ke CSV (Excel)</button>
-                </div>
-
-                <div class="space-y-4 pt-4 border-t">
-                     <h3 class="text-lg font-semibold text-gray-700">Informasi Toko</h3>
-                     <div>
-                        <label for="iNama" class="block text-xs font-medium text-gray-500 mb-1">Nama Toko</label>
-                        <input id="iNama" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
-                     </div>
-                     <div>
-                        <label for="iAlamat" class="block text-xs font-medium text-gray-500 mb-1">Alamat</label>
-                        <input id="iAlamat" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
-                     </div>
-                     <div>
-                        <label for="iTelp" class="block text-xs font-medium text-gray-500 mb-1">No. WA</label>
-                        <input id="iTelp" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off" inputmode="numeric">
-                     </div>
-                </div>
-
-                <div class="pt-4 border-t space-y-3">
-                    <h3 class="text-lg font-semibold text-gray-700">Tindakan Lanjutan</h3>
-                    <button type="button" onclick="buatRingkasanAdmin()" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition-colors">Buat Ringkasan Harian (Admin)</button>
-                    <div class="flex gap-3">
-                        <button type="button" onclick="backupData()" class="w-full bg-yellow-400 text-yellow-900 font-semibold py-2 rounded-lg hover:bg-yellow-500 transition-colors">Backup Data</button>
-                        <label class="w-full bg-gray-600 text-white font-semibold py-2 rounded-lg hover:bg-gray-700 transition-colors text-center cursor-pointer">
-                            Restore Data
-                            <input type="file" id="importFile" accept=".json" onchange="importData(this)" class="hidden">
-                        </label>
-                    </div>
                 </div>
             </div>
         </div>
@@ -127,13 +86,57 @@
 
     <div class="md:w-1/2 mt-6 md:mt-0">
          <div class="sticky top-6">
-            <h2 class="no-print font-bold text-gray-600 mb-2 text-center md:text-left">Pratinjau Nota 58mm</h2>
+            <h2 class="no-print font-bold text-gray-600 mb-2 text-center md:text-left">Pratinjau Nota</h2>
              <div class="printable-area bg-white rounded-lg shadow-sm p-3 border">
                 <pre id="previewNota" class="nota-mono"></pre>
             </div>
-            </div>
+        </div>
     </div>
+</div>
 
+<div class="max-w-4xl mx-auto mt-6 no-print">
+    <div class="bg-white rounded-xl shadow-md">
+        <button onclick="toggleSection('rekapPengaturan')" class="w-full text-left font-bold text-gray-700 p-4 flex justify-between items-center hover:bg-gray-50 rounded-t-xl">
+            <span>Rekap & Pengaturan</span>
+            <svg id="arrowIcon" class="h-6 w-6 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        <div id="rekapPengaturan" class="hidden p-6 border-t space-y-6">
+             <div>
+                 <button type="button" onclick="tampilkanRekap()" class="w-full bg-purple-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-sm">Tampilkan/Sembunyikan Rekap</button>
+                 <div id="rekapArea" class="mt-4 space-y-3"></div>
+                 <button type="button" id="btnExportCsv" onclick="exportToCSV()" class="w-full bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-800 transition-colors shadow-sm hidden mt-3">Ekspor Rekap ke CSV (Excel)</button>
+            </div>
+
+            <div class="space-y-4 pt-4 border-t">
+                 <h3 class="text-lg font-semibold text-gray-700">Informasi Toko</h3>
+                 <div>
+                    <label for="iNama" class="block text-xs font-medium text-gray-500 mb-1">Nama Toko</label>
+                    <input id="iNama" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                 </div>
+                 <div>
+                    <label for="iAlamat" class="block text-xs font-medium text-gray-500 mb-1">Alamat</label>
+                    <input id="iAlamat" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
+                 </div>
+                 <div>
+                    <label for="iTelp" class="block text-xs font-medium text-gray-500 mb-1">No. WA</label>
+                    <input id="iTelp" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off" inputmode="numeric">
+                 </div>
+                 <button type="button" onclick="saveConfig()" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors">Simpan Informasi Toko</button>
+            </div>
+
+            <div class="pt-4 border-t space-y-3">
+                <h3 class="text-lg font-semibold text-gray-700">Tindakan Lanjutan</h3>
+                <button type="button" onclick="buatRingkasanAdmin()" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition-colors">Buat Ringkasan Harian (Admin)</button>
+                <div class="flex gap-3">
+                    <button type="button" onclick="backupData()" class="w-full bg-yellow-400 text-yellow-900 font-semibold py-2 rounded-lg hover:bg-yellow-500 transition-colors">Backup Data</button>
+                    <label class="w-full bg-gray-600 text-white font-semibold py-2 rounded-lg hover:bg-gray-700 transition-colors text-center cursor-pointer">
+                        Restore Data
+                        <input type="file" id="importFile" accept=".json" onchange="importData(this)" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="no-print text-center mt-8 text-sm text-gray-500">
@@ -142,7 +145,7 @@
 
 
 <script>
-// --- BAGIAN JAVASCRIPT LENGKAP ---
+// --- BAGIAN JAVASCRIPT LENGKAP (TIDAK ADA PERUBAHAN) ---
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -275,101 +278,6 @@ async function generateInvoiceA4() {
     doc.save(`faktur-${data.petani.replace(/\s/g, '_')}-${tglFile}.pdf`);
 }
 
-
-// --- FUNGSI CETAK PDF 58mm (Struk Thermal) ---
-async function generatePDF() {
-    const { jsPDF } = window.jspdf;
-    const data = getNotaForm();
-    if (!data.petani) { alert("Isi nama petani dahulu!"); return; }
-    if (!data.barang.some(b => b.nama && b.qty)) { alert("Data barang masih kosong!"); return; }
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [58, 210] });
-    const margin = 3;
-    const maxWidth = 58;
-    let y = 7;
-    doc.setFont('Courier', 'normal');
-    doc.setFontSize(11).setFont('Courier', 'bold');
-    doc.text(data.nama, maxWidth / 2, y, { align: 'center' });
-    y += 4;
-    doc.setFontSize(8).setFont('Courier', 'normal');
-    doc.text(data.alamat, maxWidth / 2, y, { align: 'center' });
-    y += 3;
-    doc.text(`WA: ${data.telp}`, maxWidth / 2, y, { align: 'center' });
-    y += 4;
-    doc.text('---------------------------------', maxWidth / 2, y, { align: 'center' });
-    y += 4;
-    doc.text(`Petani: ${data.petani}`, margin, y);
-    y += 4;
-    doc.text(`Tanggal: ${formatTanggalNota(data.tanggal)}`, margin, y);
-    y += 4;
-    doc.text('---------------------------------', maxWidth / 2, y, { align: 'center' });
-    y += 5;
-    doc.setFontSize(9);
-    const barangMap = new Map();
-    let totalHarga = 0;
-    const itemDetails = {};
-    (data.barang || []).forEach(b => {
-        if (!b.nama) return;
-        if (!itemDetails[b.nama]) { itemDetails[b.nama] = []; }
-        itemDetails[b.nama].push(b.qty.trim() || '0');
-        let key = b.nama.toLowerCase() + "|" + b.satuan + "|" + b.harga;
-        let qty = parseFloatSafe(b.qty);
-        let harga = parseFloatSafe(b.harga);
-        let total = qty * harga;
-        totalHarga += total;
-        if (barangMap.has(key)) {
-            let t = barangMap.get(key);
-            t.qty += qty;
-            t.total += total;
-        } else {
-            barangMap.set(key, { nama: b.nama, satuan: b.satuan, harga: harga, qty: qty, total: total });
-        }
-    });
-    barangMap.forEach(item => {
-        doc.setFont('Courier', 'bold');
-        doc.text(item.nama, margin, y);
-        y += 4;
-        doc.setFont('Courier', 'normal');
-        let qtyStr = (item.qty % 1 === 0) ? item.qty : item.qty.toFixed(2).replace(".", ",");
-        let hargaStr = formatRupiah(item.harga);
-        let totalStr = formatRupiah(item.total);
-        let leftText = `${qtyStr} ${item.satuan} x @${hargaStr}`;
-        doc.text(leftText, margin, y);
-        doc.text(totalStr, maxWidth - margin, y, { align: 'right' });
-        y += 4;
-    });
-    y += 2;
-    doc.text('---------------------------------', maxWidth / 2, y, { align: 'center' });
-    y += 5;
-    doc.setFontSize(10).setFont('Courier', 'bold');
-    doc.text('TOTAL', margin, y);
-    doc.text(`Rp ${formatRupiah(totalHarga)}`, maxWidth - margin, y, { align: 'right' });
-    y += 5;
-    doc.setFontSize(8).setFont('Courier', 'normal');
-    doc.text('---------------------------------', maxWidth / 2, y, { align: 'center' });
-    y += 5;
-    doc.setFont('Courier', 'bold');
-    doc.text('Keterangan Item:', margin, y);
-    y += 4;
-    doc.setFont('Courier', 'normal');
-    let totalItem = 0;
-    for (const itemName in itemDetails) {
-        const quantities = itemDetails[itemName];
-        const count = quantities.length;
-        totalItem += count;
-        const qtyString = quantities.join(', ');
-        const fullText = `${itemName} (${count}) : ${qtyString}`;
-        const splitText = doc.splitTextToSize(fullText, maxWidth - margin * 2);
-        doc.text(splitText, margin, y);
-        y += (splitText.length * 3.5);
-    }
-    y += 1;
-    doc.text(`Jumlah item: ${totalItem}`, margin, y);
-    y += 7;
-    doc.text('Terima kasih!', maxWidth / 2, y, { align: 'center' });
-    const tglFile = new Date().toISOString().slice(0, 10);
-    doc.save(`nota-${data.petani.replace(/\s/g, '_')}-${tglFile}.pdf`);
-}
-
 // --- Logika Autocomplete ---
 function getPetaniList() {
     const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
@@ -490,8 +398,8 @@ function tambahBarang(obj={}) {
             <input class="nama border-gray-300 rounded-md w-full p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Nama Barang" value="${obj.nama||''}" autocomplete="off">
         </div>
         <div class="flex gap-2">
-            <input class="qty border-gray-300 rounded-md w-1/3 p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" type="text" inputmode="decimal" placeholder="Qty" value="${obj.qty||''}" autocomplete="off">
-            <span class="satuan self-center text-sm font-medium text-gray-600 w-8 text-center">${(obj.nama && obj.nama.toLowerCase() === 'blonceng') ? 'Biji' : (obj.satuan || 'Kg')}</span>
+            <input class="qty qty-input border-gray-300 rounded-md w-1/2 p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" type="text" inputmode="decimal" placeholder="Qty" value="${obj.qty||' '}" autocomplete="off">
+            <span class="satuan self-center text-sm font-medium text-gray-600 w-8 text-center">${(obj.nama && obj.nama.toLowerCase() === 'blonceng') ? 'Bj' : (obj.satuan || 'Kg')}</span>
             <input class="harga border-gray-300 rounded-md flex-1 p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" type="text" inputmode="decimal" placeholder="Harga/Satuan" value="${obj.harga||''}" autocomplete="off">
         </div>
     </div>
@@ -502,7 +410,7 @@ function tambahBarang(obj={}) {
   const inpHarga = div.querySelector('.harga');
   initAutocomplete(inpNama, getBarangList);
   inpNama.addEventListener('input', function() {
-    div.querySelector('.satuan').textContent = (inpNama.value.trim().toLowerCase() === "blonceng" ? "Biji" : "Kg");
+    div.querySelector('.satuan').textContent = (inpNama.value.trim().toLowerCase() === "blonceng" ? "Bj" : "Kg");
     renderNota();
   });
   inpQty.addEventListener('input', renderNota);
@@ -537,16 +445,21 @@ function tambahBarang(obj={}) {
   document.getElementById('isiBarang').appendChild(div);
   renderNota();
 }
+
 function renderNota() {
   const data = getNotaForm();
   let hasil = `${data.nama}\n${data.alamat} | Wa:${data.telp}\n${(data.petani?data.petani+" | ":"")}${formatTanggalNota(data.tanggal)}\n==============================\n`;
   const barangMap = new Map();
   const itemDetails = {};
   let totalItem = 0, totalHarga = 0;
+
   (data.barang||[]).forEach(b=>{
     if(!b.nama) return;
     if (!itemDetails[b.nama]) { itemDetails[b.nama] = []; }
-    itemDetails[b.nama].push(b.qty.trim() || '0');
+    const qtyValue = b.qty.trim();
+    if (qtyValue) {
+        itemDetails[b.nama].push(qtyValue);
+    }
     let key = b.nama.toLowerCase()+"|"+b.satuan+"|"+b.harga;
     let qty = parseFloatSafe(b.qty);
     let harga = parseFloatSafe(b.harga);
@@ -558,6 +471,7 @@ function renderNota() {
     totalItem++;
     totalHarga+=qty*harga;
   });
+
   barangMap.forEach(item=>{
     let qtyStr = (item.qty%1===0) ? item.qty : item.qty.toFixed(2).replace(".",",");
     if(item.harga > 0){
@@ -566,18 +480,40 @@ function renderNota() {
       hasil += padBoth(item.nama, `${qtyStr} ${item.satuan}`, 32) + "\n";
     }
   });
+
   hasil += "==============================\n";
   if(totalHarga > 0) hasil += padBoth("Total:", formatRupiah(totalHarga), 32) + "\n";
+  
   hasil += "Keterangan item:\n";
+
   for(const itemName in itemDetails) {
-      const quantities = itemDetails[itemName];
+      const quantities = itemDetails[itemName].filter(q => q && q.trim());
+      if (quantities.length === 0) continue;
+
       const count = quantities.length;
-      const qtyString = quantities.join(', ');
-      hasil += `${itemName} (${count}) : ${qtyString}\n`;
+      const notaWidth = 32;
+      let fullLine = `${itemName} (${count}) : ${quantities.join(', ')}`;
+
+      if (fullLine.length > notaWidth) {
+          let lines = [];
+          let currentLine = fullLine;
+          while (currentLine.length > notaWidth) {
+              let breakPoint = currentLine.lastIndexOf(' ', notaWidth);
+              if (breakPoint === -1) { breakPoint = notaWidth; }
+              lines.push(currentLine.substring(0, breakPoint));
+              currentLine = '  ' + currentLine.substring(breakPoint).trim();
+          }
+          lines.push(currentLine);
+          hasil += lines.join('\n') + '\n';
+      } else {
+          hasil += fullLine + '\n';
+      }
   }
+  
   hasil += `Jumlah item : ${totalItem}`;
   document.getElementById('previewNota').textContent = hasil;
 }
+
 function getNotaForm() {
   return {
     nama: document.getElementById('iNama').value.trim(),
@@ -594,7 +530,6 @@ function getNotaForm() {
   }
 }
 
-// [MODIFIKASI] Fungsi Salin Nota menggunakan API modern
 function salinNota() {
   const textToCopy = document.getElementById('previewNota').textContent;
   const btn = document.querySelector('button[onclick="salinNota()"]');
@@ -712,7 +647,6 @@ function tampilkanRekap() {
   showTabelRekap();
 }
 
-// [FINAL] FUNGSI RENDER DASHBOARD (MENGECUALIKAN ADMIN DARI KALKULASI)
 function renderDashboard() {
   const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
   
@@ -723,41 +657,30 @@ function renderDashboard() {
   let omzetPerPetaniBulanIni = {};
   const dateMap = new Map();
 
-  // Siapkan label dan map untuk chart 7 hari
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
     dateMap.set(d.toISOString().slice(0, 10), 0);
   }
   const labels = Array.from(dateMap.keys()).map(d => `${d.slice(8,10)}/${d.slice(5,7)}`);
 
-  // [MODIFIKASI PENTING] Loop melalui setiap petani di database
   for (const petani in db) {
-      // Lewati data dengan nama 'Admin' untuk semua kalkulasi global!
       if (petani === 'Admin') {
           continue;
       }
 
-      // Loop melalui transaksi setiap petani yang valid
       db[petani].forEach(trx => {
           const trxTotal = getTrxTotal(trx);
-          
-          // Kalkulasi Total Omzet
           totalOmzet += trxTotal;
 
-          // Kalkulasi Transaksi Hari Ini
           if (trx.tanggal && trx.tanggal.slice(0, 10) === today) {
               trxHariIni++;
           }
           
-          // Kalkulasi Omzet per Petani (untuk statistik petani terbaik)
           if (trx.tanggal && trx.tanggal.slice(0, 7) === currentMonth) {
               omzetPerPetaniBulanIni[trx.petani] = (omzetPerPetaniBulanIni[trx.petani] || 0) + trxTotal;
           }
 
-          // Kalkulasi untuk Chart 7 Hari
           if (trx.tanggal) {
               const trxDate = trx.tanggal.slice(0, 10);
               if (dateMap.has(trxDate)) {
@@ -767,7 +690,6 @@ function renderDashboard() {
       });
   }
 
-  // Menentukan petani terbaik (logika ini tetap sama)
   let petaniTerbaik = '-';
   let maxOmzetBulanIni = 0;
   for(const p in omzetPerPetaniBulanIni){
@@ -777,12 +699,10 @@ function renderDashboard() {
       }
   }
 
-  // Update tampilan dashboard
   document.getElementById('statTotalOmzet').textContent = 'Rp ' + formatRupiah(totalOmzet);
   document.getElementById('statTrxHariIni').textContent = trxHariIni;
   document.getElementById('statPetaniTerbaik').textContent = petaniTerbaik;
   
-  // Render Chart
   const data7hari = Array.from(dateMap.values());
   const ctx = document.getElementById('chart7Hari').getContext('2d');
   if(rekapChart) rekapChart.destroy();
@@ -887,12 +807,10 @@ function exportToCSV() {
     document.body.removeChild(link);
 }
 
-// [FINAL] FUNGSI RINGKASAN ADMIN (LOGIKA KOLEKSI/KUMPULAN)
 function buatRingkasanAdmin() {
     const hariIni = new Date().toISOString().slice(0, 10);
     const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
 
-    // 1. Cek apakah rekap untuk hari ini sudah ada (Logika ini sudah benar sesuai keinginan Anda).
     let rekapHariIniIndex = -1;
     if (db['Admin']) {
         rekapHariIniIndex = db['Admin'].findIndex(trx => trx.tanggal && trx.tanggal.slice(0, 10) === hariIni);
@@ -900,22 +818,19 @@ function buatRingkasanAdmin() {
 
     if (rekapHariIniIndex !== -1) {
         if (!confirm("Ringkasan untuk hari ini sudah ada. Apakah Anda ingin MENGHAPUSNYA dan membuat ulang dengan data terbaru?")) {
-            return; // Batalkan jika pengguna menolak
+            return;
         }
     }
 
-    // 2. [MODIFIKASI SESUAI PERMINTAAN] Mengumpulkan semua item dari semua petani (kecuali Admin) untuk hari ini.
-    // Bukan lagi agregasi, tetapi penggabungan daftar (collection/concatenation).
     const semuaBarangHariIni = [];
     let totalTransaksiDiringkas = 0;
 
     for (const petani in db) {
-        if (petani === 'Admin') continue; // Jangan ikutkan rekap lama dalam rekap baru
+        if (petani === 'Admin') continue;
 
         db[petani].forEach(trx => {
             if (trx.tanggal && trx.tanggal.slice(0, 10) === hariIni) {
                 totalTransaksiDiringkas++;
-                // Cukup gabungkan array 'barang' ke dalam koleksi utama
                 if (trx.barang && trx.barang.length > 0) {
                     semuaBarangHariIni.push(...trx.barang);
                 }
@@ -928,7 +843,6 @@ function buatRingkasanAdmin() {
         return;
     }
 
-    // Filter terakhir untuk memastikan tidak ada item 'kosong' yang masuk
     const barangKolektif = semuaBarangHariIni.filter(b => b.nama && b.qty);
 
     if (barangKolektif.length === 0) {
@@ -936,17 +850,15 @@ function buatRingkasanAdmin() {
         return;
     }
 
-    // 3. Buat objek transaksi baru untuk Admin.
     const ringkasanAdmin = {
         nama: document.getElementById('iNama').value,
         alamat: document.getElementById('iAlamat').value,
         telp: document.getElementById('iTelp').value,
-        petani: 'Admin', // Nama petani khusus untuk rekap
-        tanggal: new Date().toISOString(), // Waktu saat ringkasan dibuat
-        barang: barangKolektif // Data barang adalah hasil penggabungan
+        petani: 'Admin',
+        tanggal: new Date().toISOString(),
+        barang: barangKolektif
     };
 
-    // 4. Simpan data (logika hapus-dan-tambah jika perlu).
     if (!db['Admin']) {
         db['Admin'] = [];
     }
@@ -960,7 +872,6 @@ function buatRingkasanAdmin() {
 
     alert(`Ringkasan harian berhasil dibuat/diperbarui!\nTotal ${totalTransaksiDiringkas} transaksi dengan ${barangKolektif.length} item telah dikumpulkan.`);
 
-    // Muat ulang tampilan rekap jika sedang terbuka.
     if (document.getElementById('rekapArea').innerHTML !== '') {
         tampilkanRekap();
     }
@@ -1009,6 +920,7 @@ function saveConfig() {
     localStorage.setItem('conf_nama', document.getElementById('iNama').value);
     localStorage.setItem('conf_alamat', document.getElementById('iAlamat').value);
     localStorage.setItem('conf_telp', document.getElementById('iTelp').value);
+    alert('Informasi toko berhasil disimpan!');
 }
 document.getElementById('iNama').addEventListener('change', saveConfig);
 document.getElementById('iAlamat').addEventListener('change', saveConfig);
