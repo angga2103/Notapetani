@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="id" class="bg-gray-100">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Nota Thermal Petani - Praktis & Rapi</title>
+    <title>Nota Rekap</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
 
@@ -10,945 +10,339 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-      @media print {
-        body, .printable-area { width: 58mm !important; max-width: 58mm !important; margin: 0; padding: 0; background: #fff; font-size: 12px; }
-        .no-print { display: none !important; }
-        html, body { background-color: #fff !important; }
-      }
-      .nota-mono { font-family: 'Courier New', Courier, monospace; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; }
-      .autocomplete-container { position: relative; }
-      .autocomplete-suggestions {
-        position: absolute; border: 1px solid #d1d5db; background-color: #fff; z-index: 99;
-        max-height: 150px; overflow-y: auto; width: 100%; border-radius: 0 0 0.5rem 0.5rem;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      }
-      .autocomplete-suggestions div { padding: 0.5rem; cursor: pointer; font-size: 14px; }
-      .autocomplete-suggestions div:hover { background-color: #f3f4f6; }
-      .autocomplete-suggestions .active { background-color: #3b82f6; color: #fff; }
-      .sortable { cursor: pointer; user-select: none; }
-      .sortable:hover { color: #1d4ed8; }
-      @media (max-width: 640px) {
-        .qty-input { width: 80% !important; }
-      }
+        /* CSS Disederhanakan untuk satu tema terang */
+        :root {
+            --primary: #2d6a4f;
+            --secondary: #40916c;
+            --accent: #74c69d;
+        }
+        body {
+            background-color: #f8fafc;
+            color: #1f2937;
+            font-family: 'Inter', sans-serif;
+        }
+        .card {
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+        }
+        .thermal-paper {
+            background: linear-gradient(to bottom, #fff 0%, #f7f7f7 100%);
+            border: 1px solid #e5e5e5;
+        }
+        .sidebar {
+            background-color: var(--secondary);
+            color: white;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(0);
+        }
+        .sidebar.hidden {
+            transform: translateX(-100%);
+        }
+        @media (max-width: 767px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 250px;
+                z-index: 50;
+            }
+        }
+        @media print {
+            body, .printable-area { width: 58mm !important; max-width: 58mm !important; margin: 0; padding: 0; background: #fff; font-size: 12px; }
+            .no-print { display: none !important; }
+            html, body { background-color: #fff !important; }
+        }
+        .nota-mono { font-family: 'Courier New', Courier, monospace; font-size: 13px; white-space: pre-wrap; word-wrap: break-word; }
+        .autocomplete-suggestions {
+            position: absolute; border: 1px solid #d1d5db; background-color: #fff; z-index: 99;
+            max-height: 150px; overflow-y: auto; width: 100%; border-radius: 0 0 0.5rem 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .autocomplete-suggestions div { padding: 0.75rem; cursor: pointer; font-size: 14px; }
+        .autocomplete-suggestions div:hover { background-color: var(--secondary); color: white; }
+        .autocomplete-suggestions .active { background-color: var(--primary); color: white; }
+        .sortable { cursor: pointer; user-select: none; }
+        .sortable:hover { color: var(--accent); }
     </style>
 </head>
 <body class="py-6 px-4">
 
-<div id="backupReminder" class="no-print hidden fixed top-0 left-0 right-0 bg-yellow-100 border-b border-yellow-300 p-3 text-center text-sm text-yellow-800 shadow-lg z-50 flex justify-between items-center">
-    <span>
-        <span class="font-bold">Pengingat:</span> Amankan data Anda secara berkala.
-        <button onclick="performBackupFromReminder()" class="font-bold underline hover:text-yellow-900 ml-2">Backup Sekarang</button>
-    </span>
-    <button onclick="dismissBackupReminder()" class="font-bold text-xl leading-none px-2" title="Tutup">&times;</button>
-</div>
+<header class="no-print fixed top-0 left-0 right-0 bg-white shadow-md z-40 p-3 flex justify-between items-center md:ml-64">
+    <div class="flex items-center gap-3">
+        <button id="sidebarToggle" class="text-gray-700 text-2xl"><i class="fas fa-bars"></i></button>
+        <h1 class="text-xl md:text-2xl font-bold flex items-center gap-2 text-gray-800">
+            <i class="fas fa-file-invoice-dollar text-green-600"></i>
+            <span>Nota Rekap</span>
+        </h1>
+    </div>
+</header>
 
-<div class="max-w-4xl mx-auto flex flex-col md:flex-row md:gap-6">
+<nav id="sidebar" class="sidebar no-print fixed top-0 left-0 bottom-0 w-64 p-4 space-y-2 z-30 flex flex-col">
+    <div class="p-4 text-center"><h2 class="text-2xl font-bold text-white">Menu</h2></div>
+    <a href="#buat-nota" class="nav-link block p-3 rounded-lg hover:bg-white/20 text-white font-semibold flex items-center gap-3"><i class="fas fa-file-alt w-6 text-center"></i> Buat Nota</a>
+    <a href="#rekap-pengaturan" class="nav-link block p-3 rounded-lg hover:bg-white/20 text-white font-semibold flex items-center gap-3"><i class="fas fa-chart-line w-6 text-center"></i> Rekap & Analisis</a>
+    <a href="#pengaturan-toko" class="nav-link block p-3 rounded-lg hover:bg-white/20 text-white font-semibold flex items-center gap-3"><i class="fas fa-store w-6 text-center"></i> Info Toko</a>
+    <a href="#backup" class="nav-link block p-3 rounded-lg hover:bg-white/20 text-white font-semibold flex items-center gap-3"><i class="fas fa-database w-6 text-center"></i> Backup & Restore</a>
+    <div class="mt-auto text-center text-xs text-white/70 p-2"><p>Developer by <a href="https://wa.me/6281775700114" target="_blank" rel="noopener noreferrer" class="font-semibold underline">Mas Ansor</a></p></div>
+</nav>
 
-    <div class="no-print md:w-1/2 space-y-6">
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <h1 class="text-2xl font-bold text-gray-800 text-center mb-6">Buat Nota Petani</h1>
-            <input type="hidden" id="editIndex" value="">
-
-            <div class="space-y-4">
-                 <div class="autocomplete-container">
-                    <label for="iPetani" class="block text-sm font-medium text-gray-600 mb-1">Nama Petani</label>
-                    <input id="iPetani" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ketik nama petani..." autocomplete="off">
+<main class="mt-20 md:ml-64 transition-all duration-300">
+    <div class="max-w-6xl mx-auto flex flex-col lg:flex-row lg:gap-8">
+        <div id="buat-nota" class="w-full lg:w-1/2 space-y-6">
+            <div class="card rounded-xl p-6">
+                <h1 class="text-2xl font-bold text-center mb-6 flex items-center justify-center gap-2"><i class="fas fa-edit text-green-600"></i> Input Nota</h1>
+                <input type="hidden" id="editIndex" value="">
+                <div class="space-y-4">
+                     <div>
+                        <label for="iPetani" class="block text-sm font-medium mb-1 text-gray-600">Nama Petani</label>
+                        <div class="relative"><i class="fas fa-user absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i><input id="iPetani" class="border bg-gray-50 text-gray-900 placeholder-gray-400 rounded-lg w-full p-3 pl-10 focus:ring-2 focus:ring-green-500 focus:border-green-500" placeholder="Ketik nama petani..." autocomplete="off"></div>
+                    </div>
+                    <div>
+                        <label for="iTanggal" class="block text-sm font-medium mb-1 text-gray-600">Tanggal & Jam</label>
+                        <div class="flex gap-2">
+                            <div class="relative flex-1"><i class="fas fa-calendar-alt absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i><input id="iTanggal" class="border bg-gray-50 text-gray-900 rounded-lg w-full p-3 pl-10 focus:ring-2 focus:ring-green-500 focus:border-green-500" type="datetime-local"></div>
+                            <button type="button" onclick="isiTanggalOtomatis()" class="bg-gray-200 text-gray-700 px-4 rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors">Sekarang</button>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label for="iTanggal" class="block text-sm font-medium text-gray-600 mb-1">Tanggal & Jam</label>
-                    <div class="flex gap-2">
-                        <input id="iTanggal" class="border-gray-300 rounded-lg shadow-sm flex-1 p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" type="datetime-local">
-                        <button type="button" onclick="isiTanggalOtomatis()" class="bg-gray-200 text-gray-700 px-3 rounded-lg text-sm font-semibold hover:bg-gray-300 transition-colors">Sekarang</button>
+                <div class="space-y-4 pt-6 mt-4 border-t">
+                    <h2 class="text-lg font-semibold flex items-center gap-2"><i class="fas fa-boxes text-green-600"></i> Data Barang</h2>
+                    <div id="isiBarang" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
+                    <button type="button" onclick="tambahBarang()" class="w-full bg-green-100 text-green-800 text-sm p-3 rounded-lg font-semibold hover:bg-green-200 transition-colors flex items-center justify-center gap-2 border border-dashed border-green-300"><i class="fas fa-plus-circle"></i> Tambah Baris Barang</button>
+                </div>
+                <div class="space-y-3 pt-6 mt-4 border-t">
+                    <button type="button" id="btnSimpan" onclick="simpanTransaksi()" class="w-full bg-primary text-white shadow-lg py-3 px-4 rounded-lg font-bold hover:bg-secondary transition-colors focus:outline-none focus:ring-4 focus:ring-green-300 text-lg flex items-center justify-center gap-2"><i class="fas fa-save"></i> Simpan Nota</button>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" onclick="salinNota()" class="bg-gray-100 border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm flex items-center justify-center gap-2"><i class="fas fa-copy"></i> Salin</button>
+                        <button type="button" onclick="generateInvoiceA4()" class="bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2"><i class="fas fa-print"></i> Cetak A4</button>
                     </div>
                 </div>
             </div>
-
-            <div class="space-y-4 pt-6 mt-4 border-t">
-                <h2 class="text-lg font-semibold text-gray-700">Data Barang</h2>
-                <div id="isiBarang" class="space-y-3"></div>
-                <button type="button" onclick="tambahBarang()" class="w-full bg-blue-100 text-blue-800 text-sm p-2 rounded-lg font-semibold hover:bg-blue-200 transition-colors flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                    Tambah Barang
-                </button>
+        </div>
+        <div class="w-full lg:w-1/2 mt-6 lg:mt-0">
+             <div class="sticky top-20">
+                <h2 class="no-print font-bold mb-2 text-center lg:text-left flex items-center justify-center lg:justify-start gap-2"><i class="fas fa-receipt text-green-600"></i> Pratinjau Nota Thermal</h2>
+                 <div class="printable-area thermal-paper rounded-lg p-3 border"><pre id="previewNota" class="nota-mono"></pre></div>
             </div>
+        </div>
+    </div>
+    <div id="rekap-pengaturan" class="card rounded-xl mt-8">
+        <div class="p-6">
+            <h2 class="text-2xl font-bold flex items-center gap-3 mb-4"><i class="fas fa-chart-line text-green-600"></i> Rekap & Analisis</h2>
+            <button type="button" onclick="tampilkanRekap()" class="w-full bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-sm flex items-center justify-center gap-2"><i class="fas fa-chart-bar"></i> Buka/Tutup Panel Rekap</button>
+            <div id="rekapArea" class="mt-4 space-y-3"></div>
+            <button type="button" id="btnExportCsv" onclick="exportToCSV()" class="w-full bg-green-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-800 transition-colors shadow-sm hidden mt-3 flex items-center justify-center gap-2"><i class="fas fa-file-export"></i> Ekspor Rekap ke CSV (Excel)</button>
+        </div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-8 mt-8">
+        <div id="pengaturan-toko" class="card rounded-xl p-6">
+            <h2 class="text-2xl font-bold flex items-center gap-3 mb-4"><i class="fas fa-store text-green-600"></i> Informasi Toko</h2>
+            <div class="space-y-4">
+                 <div>
+                    <label for="iNama" class="block text-sm font-medium text-gray-600 mb-1">Nama Toko</label>
+                    <input id="iNama" class="border bg-gray-50 text-gray-900 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" autocomplete="off">
+                 </div>
+                 <div>
+                    <label for="iAlamat" class="block text-sm font-medium text-gray-600 mb-1">Alamat</label>
+                    <input id="iAlamat" class="border bg-gray-50 text-gray-900 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" autocomplete="off">
+                 </div>
+                 <div>
+                    <label for="iTelp" class="block text-sm font-medium text-gray-600 mb-1">No. WA</label>
+                    <input id="iTelp" class="border bg-gray-50 text-gray-900 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" autocomplete="off" inputmode="numeric">
+                 </div>
+                 <button type="button" onclick="saveConfig()" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><i class="fas fa-save"></i> Simpan Info</button>
+            </div>
+        </div>
+        <div id="backup" class="card rounded-xl p-6">
+            <h2 class="text-2xl font-bold flex items-center gap-3 mb-4"><i class="fas fa-database text-green-600"></i> Backup & Restore</h2>
+            
+            <div id="backupStatus" class="p-3 rounded-lg mb-4 text-center"></div>
 
-            <div class="space-y-3 pt-6 mt-4 border-t">
-                <button type="button" id="btnSimpan" onclick="simpanTransaksi()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-300">Simpan Nota</button>
-                
+            <div class="space-y-3">
+                <button type="button" onclick="buatRingkasanAdmin()" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"><i class="fas fa-user-shield"></i> Buat Ringkasan Admin Harian</button>
                 <div class="grid grid-cols-2 gap-3">
-                    <button type="button" onclick="salinNota()" class="bg-gray-100 border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm">Salin</button>
-                    <button type="button" onclick="generateInvoiceA4()" class="bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm">Cetak A4</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="md:w-1/2 mt-6 md:mt-0">
-         <div class="sticky top-6">
-            <h2 class="no-print font-bold text-gray-600 mb-2 text-center md:text-left">Pratinjau Nota</h2>
-             <div class="printable-area bg-white rounded-lg shadow-sm p-3 border">
-                <pre id="previewNota" class="nota-mono"></pre>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="max-w-4xl mx-auto mt-6 no-print">
-    <div class="bg-white rounded-xl shadow-md">
-        <button onclick="toggleSection('rekapPengaturan')" class="w-full text-left font-bold text-gray-700 p-4 flex justify-between items-center hover:bg-gray-50 rounded-t-xl">
-            <span>Rekap & Pengaturan</span>
-            <svg id="arrowIcon" class="h-6 w-6 transform transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-        </button>
-        <div id="rekapPengaturan" class="hidden p-6 border-t space-y-6">
-             <div>
-                 <button type="button" onclick="tampilkanRekap()" class="w-full bg-purple-600 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-sm">Tampilkan/Sembunyikan Rekap</button>
-                 <div id="rekapArea" class="mt-4 space-y-3"></div>
-                 <button type="button" id="btnExportCsv" onclick="exportToCSV()" class="w-full bg-green-700 text-white font-bold py-2.5 px-4 rounded-lg hover:bg-green-800 transition-colors shadow-sm hidden mt-3">Ekspor Rekap ke CSV (Excel)</button>
-            </div>
-
-            <div class="space-y-4 pt-4 border-t">
-                 <h3 class="text-lg font-semibold text-gray-700">Informasi Toko</h3>
-                 <div>
-                    <label for="iNama" class="block text-xs font-medium text-gray-500 mb-1">Nama Toko</label>
-                    <input id="iNama" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
-                 </div>
-                 <div>
-                    <label for="iAlamat" class="block text-xs font-medium text-gray-500 mb-1">Alamat</label>
-                    <input id="iAlamat" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off">
-                 </div>
-                 <div>
-                    <label for="iTelp" class="block text-xs font-medium text-gray-500 mb-1">No. WA</label>
-                    <input id="iTelp" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" autocomplete="off" inputmode="numeric">
-                 </div>
-                 <button type="button" onclick="saveConfig()" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors">Simpan Informasi Toko</button>
-            </div>
-
-            <div class="pt-4 border-t space-y-3">
-                <h3 class="text-lg font-semibold text-gray-700">Tindakan Lanjutan</h3>
-                <button type="button" onclick="buatRingkasanAdmin()" class="w-full bg-indigo-600 text-white font-semibold py-2 rounded-lg hover:bg-indigo-700 transition-colors">Buat Ringkasan Harian (Admin)</button>
-                <div class="flex gap-3">
-                    <button type="button" onclick="backupData()" class="w-full bg-yellow-400 text-yellow-900 font-semibold py-2 rounded-lg hover:bg-yellow-500 transition-colors">Backup Data</button>
-                    <label class="w-full bg-gray-600 text-white font-semibold py-2 rounded-lg hover:bg-gray-700 transition-colors text-center cursor-pointer">
-                        Restore Data
-                        <input type="file" id="importFile" accept=".json" onchange="importData(this)" class="hidden">
+                    <button type="button" onclick="backupData()" class="bg-yellow-400 text-yellow-900 font-semibold py-3 rounded-lg hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"><i class="fas fa-download"></i> Backup</button>
+                    <label class="bg-gray-600 text-white font-semibold py-3 rounded-lg hover:bg-gray-700 transition-colors text-center cursor-pointer flex items-center justify-center gap-2">
+                        <i class="fas fa-upload"></i> Restore<input type="file" id="importFile" accept=".json" onchange="importData(this)" class="hidden">
                     </label>
                 </div>
             </div>
         </div>
     </div>
-</div>
-
-<div class="no-print text-center mt-8 text-sm text-gray-500">
-    <p>Developer by <a href="https://wa.me/6281775700114" target="_blank" rel="noopener noreferrer" class="font-semibold text-gray-600 hover:text-blue-500 underline">Mas Ansor</a></p>
-</div>
-
+</main>
 
 <script>
-// --- BAGIAN JAVASCRIPT LENGKAP (TIDAK ADA PERUBAHAN) ---
+// --- UI SCRIPT (DISEDERHANAKAN) ---
+document.addEventListener('DOMContentLoaded', () => {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.getElementById('sidebar');
+    sidebarToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sidebar.classList.toggle('hidden');
+        sidebarToggle.innerHTML = sidebar.classList.contains('hidden') ? '<i class="fas fa-bars"></i>' : '<i class="fas fa-times"></i>';
+    });
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth < 768 && !sidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+            sidebar.classList.add('hidden');
+            sidebarToggle.innerHTML = '<i class="fas fa-bars"></i>';
+        }
+    });
+    document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 768) {
+                sidebar.classList.add('hidden');
+                sidebarToggle.innerHTML = '<i class="fas fa-bars"></i>';
+            }
+        });
+    });
+});
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(registration => console.log('Service Worker berhasil didaftarkan.'))
-      .catch(err => console.log('Pendaftaran Service Worker gagal: ', err));
-  });
-}
+// --- MAIN APP SCRIPT ---
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail: ', err)); }); }
 
+// Variabel Global
 const LS_KEY = "nota58_petani";
 let lastEnterPressTime = 0;
 let sortState = { key: 'tanggal', direction: 'desc' };
 let rekapChart = null;
 
-function toggleSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    const icon = document.getElementById('arrowIcon');
-    section.classList.toggle('hidden');
-    icon.classList.toggle('rotate-180');
-}
+async function generateInvoiceA4() { const { jsPDF } = window.jspdf; const data = getNotaForm(); if (!data.petani) { alert("Isi nama petani dahulu!"); return; } if (!data.barang.some(b => b.nama && b.qty)) { alert("Data barang masih kosong!"); return; } const doc = new jsPDF('p', 'mm', 'a4'); const pageWidth = doc.internal.pageSize.getWidth(); const margin = 15; let y = 20; doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(data.nama, margin, y); y += 8; doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(data.alamat, margin, y); doc.text(`Telp/WA: ${data.telp}`, margin, y + 4); doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text('FAKTUR', pageWidth - margin, y, { align: 'right' }); doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(`Tanggal: ${formatTanggalNota(data.tanggal).split(' ')[0]}`, pageWidth - margin, y + 8, { align: 'right' }); y += 15; doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 10; doc.setFont('helvetica', 'bold'); doc.text('Kepada Yth:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(data.petani, margin, y + 5); y += 15; const tableHeaders = [['No.', 'Nama Barang', 'Kuantitas', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)']]; const tableBody = []; let grandTotal = 0; let counter = 1; (data.barang || []).forEach(b => { if (!b.nama) return; const qty = parseFloatSafe(b.qty); const harga = parseFloatSafe(b.harga); const total = qty * harga; grandTotal += total; tableBody.push([counter++, b.nama, (b.qty || '0').replace('.', ','), b.satuan, formatRupiah(harga), formatRupiah(total)]); }); doc.autoTable({ head: tableHeaders, body: tableBody, startY: y, theme: 'grid', styles: { fontSize: 10, cellPadding: 2 }, headStyles: { fillColor: [45, 106, 79], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [240, 240, 240] }, columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } }, margin: { left: margin, right: margin } }); y = doc.autoTable.previous.finalY; y += 15; doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text(`TOTAL TAGIHAN`, margin, y); doc.text(`Rp ${formatRupiah(grandTotal)}`, pageWidth - margin, y, { align: 'right' }); y += 30; const signatureX = pageWidth - margin - 50; doc.text('Hormat kami,', signatureX, y); y += 20; doc.setLineWidth(0.3); doc.line(signatureX, y, signatureX + 40, y); doc.text(`(${data.nama})`, signatureX, y + 5); const tglFile = new Date().toISOString().slice(0, 10); doc.save(`faktur-${data.petani.replace(/\s/g, '_')}-${tglFile}.pdf`); }
+function getPetaniList() { const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); return Object.keys(db).sort(); }
+function getBarangList() { const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const barangSet = new Set(); for (const petani in db) { if (db[petani]) { db[petani].forEach(trx => { if (trx.barang) { trx.barang.forEach(b => { if (b.nama) barangSet.add(b.nama.trim()); }); } }); } } return Array.from(barangSet).sort(); }
+function initAutocomplete(inputEl, sourceFunc) { let activeSuggestion = -1; let suggestionsContainer; inputEl.addEventListener('input', function(e) { const val = this.value; closeAllLists(); if (!val) { return false; } const source = sourceFunc(); suggestionsContainer = document.createElement("DIV"); suggestionsContainer.setAttribute("class", "autocomplete-suggestions"); this.parentNode.appendChild(suggestionsContainer); let count = 0; source.forEach(item => { if (item.substr(0, val.length).toUpperCase() == val.toUpperCase() && count < 7) { const suggestionDiv = document.createElement("DIV"); suggestionDiv.innerHTML = "<strong>" + item.substr(0, val.length) + "</strong>" + item.substr(val.length); suggestionDiv.dataset.value = item; suggestionDiv.addEventListener("click", function(e) { inputEl.value = this.dataset.value; inputEl.dispatchEvent(new Event('input', { bubbles: true })); closeAllLists(); const itemContainer = inputEl.closest('.barang-container'); if (itemContainer) { const qtyInput = itemContainer.querySelector('.qty'); if (qtyInput) { qtyInput.focus(); } } }); suggestionsContainer.appendChild(suggestionDiv); count++; } }); }); inputEl.addEventListener('keydown', function(e) { let x = suggestionsContainer; if (x) x = x.getElementsByTagName("div"); if (!x) return; if (e.keyCode == 40) { activeSuggestion++; addActive(x); } else if (e.keyCode == 38) { activeSuggestion--; addActive(x); } else if (e.keyCode == 13) { if (activeSuggestion > -1) { e.preventDefault(); x[activeSuggestion].click(); activeSuggestion = -1; } } else if (e.keyCode == 27) { closeAllLists(); } }); function addActive(x) { if (!x) return false; removeActive(x); if (activeSuggestion >= x.length) activeSuggestion = 0; if (activeSuggestion < 0) activeSuggestion = (x.length - 1); x[activeSuggestion].classList.add("active"); } function removeActive(x) { for (let i = 0; i < x.length; i++) { x[i].classList.remove("active"); } } function closeAllLists(elmnt) { const items = document.getElementsByClassName("autocomplete-suggestions"); for (let i = 0; i < items.length; i++) { if (elmnt != items[i] && elmnt != inputEl) { items[i].parentNode.removeChild(items[i]); } } } document.addEventListener("click", function (e) { closeAllLists(e.target); });}
+function isiTanggalOtomatis() { let t = new Date(); let y = t.getFullYear(), m = String(t.getMonth()+1).padStart(2,"0"), d = String(t.getDate()).padStart(2,"0"); let H = String(t.getHours()).padStart(2,"0"), M = String(t.getMinutes()).padStart(2,"0"); document.getElementById('iTanggal').value = y+'-'+m+'-'+d+'T'+H+':'+M; renderNota(); }
+function formatTanggalNota(val) { if(!val) return ''; let d = new Date(val); if(isNaN(d)) return val; let tgl = String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear(); let jam = String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); return tgl+" "+jam; }
+function padBoth(left, right, width) { let space = width - (left.length + right.length); if (space < 1) space = 1; return left + ' '.repeat(space) + right; }
+function formatRupiah(val) { if(!val) return '0'; return Number(val).toLocaleString('id-ID'); }
+function parseFloatSafe(numStr) { if (typeof numStr !== 'string') return 0; return parseFloat(numStr.replace(/\./g, '').replace(',', '.')) || 0; }
+function getTrxTotal(trx) { return (trx.barang || []).reduce((sum, b) => sum + (parseFloatSafe(b.qty) * parseFloatSafe(b.harga)), 0); }
 
-// --- FUNGSI FAKTUR A4 ---
-async function generateInvoiceA4() {
-    const { jsPDF } = window.jspdf;
-    const data = getNotaForm();
+function tambahBarang(obj={}) { const div = document.createElement('div'); div.className = "flex items-center gap-2 p-2.5 border rounded-lg bg-gray-50 barang-container"; div.innerHTML = ` <div class="flex-1 space-y-2"> <div class="autocomplete-container relative"> <i class="fas fa-tag absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i> <input class="nama border rounded-md w-full p-2 pl-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" placeholder="Nama Barang" value="${obj.nama||''}" autocomplete="off"> </div> <div class="grid grid-cols-1 sm:grid-cols-3 gap-2"> <div class="relative"> <input class="qty qty-input border rounded-md w-full p-2 pr-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" type="text" inputmode="decimal" placeholder="Qty" value="${obj.qty||''}" autocomplete="off"> <span class="satuan absolute right-2.5 top-1/2 transform -translate-y-1/2 text-xs font-medium text-gray-500">${(obj.nama && obj.nama.toLowerCase() === 'blonceng') ? 'Bj' : (obj.satuan || 'Kg')}</span> </div> <div class="col-span-1 sm:col-span-2 relative"> <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-gray-400">Rp</span> <input class="harga border rounded-md w-full p-2 pl-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" type="text" inputmode="decimal" placeholder="Harga/Satuan" value="${obj.harga||''}" autocomplete="off"> </div> </div> </div> <button type="button" onclick="this.parentNode.remove();renderNota()" title="Hapus Barang" class="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center hover:bg-red-200 transition-all flex-shrink-0"><i class="fas fa-trash-alt"></i></button> `; const inpNama = div.querySelector('.nama'); const inpQty = div.querySelector('.qty'); const inpHarga = div.querySelector('.harga'); initAutocomplete(inpNama, getBarangList); inpNama.addEventListener('input', function() { div.querySelector('.satuan').textContent = (inpNama.value.trim().toLowerCase() === "blonceng" ? "Bj" : "Kg"); renderNota(); }); function checkAndAddRow(currentInput) { const allBarangContainers = document.querySelectorAll('#isiBarang .barang-container'); const isLastRow = currentInput.closest('.barang-container') === allBarangContainers[allBarangContainers.length - 1]; const inputValue = currentInput.value.trim(); if (isLastRow && inputValue !== '') { const namaInputCurrentRow = currentInput.closest('.barang-container').querySelector('.nama'); if (namaInputCurrentRow && namaInputCurrentRow.value.trim() !== '') { tambahBarang(); setTimeout(() => { const allNamaInputs = document.querySelectorAll('#isiBarang .nama'); const lastNamaInput = allNamaInputs[allNamaInputs.length - 1]; if (lastNamaInput) { lastNamaInput.focus(); } }, 0); } } } inpHarga.addEventListener('blur', function() { checkAndAddRow(this); renderNota(); }); inpQty.addEventListener('blur', function() { checkAndAddRow(this); renderNota(); }); inpQty.addEventListener('input', function(e) { if (e.target.value.includes('..')) { const namaBarangSebelumnya = inpNama.value; const qtySebelumnya = e.target.value.replace('..', '').trim(); e.target.value = qtySebelumnya; tambahBarang({ nama: namaBarangSebelumnya, qty: qtySebelumnya }); setTimeout(() => { const allQtyInputs = document.querySelectorAll('#isiBarang .qty'); const lastQtyInput = allQtyInputs[allQtyInputs.length - 1]; if (lastQtyInput) { lastQtyInput.focus(); } }, 0); } renderNota(); }); document.getElementById('isiBarang').appendChild(div); renderNota(); }
+function renderNota() { const data = getNotaForm(); let hasil = `${data.nama}\n${data.alamat} | Wa:${data.telp}\n${(data.petani?data.petani+" | ":"")}${formatTanggalNota(data.tanggal)}\n==============================\n`; const barangMap = new Map(); const itemDetails = {}; let totalItem = 0, totalHarga = 0; (data.barang||[]).forEach(b=>{ if(!b.nama) return; if (!itemDetails[b.nama]) { itemDetails[b.nama] = []; } const qtyValue = b.qty.trim(); if (qtyValue) { itemDetails[b.nama].push(qtyValue); } let key = b.nama.toLowerCase()+"|"+b.satuan+"|"+b.harga; let qty = parseFloatSafe(b.qty); let harga = parseFloatSafe(b.harga); if(barangMap.has(key)){ let t=barangMap.get(key); t.qty+=qty; t.total+=qty*harga; } else { barangMap.set(key,{nama:b.nama,satuan:b.satuan,harga:harga,qty:qty,total:qty*harga}); } totalItem++; totalHarga+=qty*harga; }); barangMap.forEach(item=>{ let qtyStr = (item.qty%1===0) ? item.qty : item.qty.toFixed(2).replace(".",","); if(item.harga > 0){ hasil += `${item.nama}\n` + padBoth(`${qtyStr} ${item.satuan} × ${formatRupiah(item.harga)}`, formatRupiah(item.total), 32) + "\n"; } else { hasil += padBoth(item.nama, `${qtyStr} ${item.satuan}`, 32) + "\n"; } }); hasil += "==============================\n"; if(totalHarga > 0) hasil += padBoth("Total:", "Rp"+formatRupiah(totalHarga), 32) + "\n"; hasil += "\nKeterangan item:\n"; for(const itemName in itemDetails) { const quantities = itemDetails[itemName].filter(q => q && q.trim()); if (quantities.length === 0) continue; const count = quantities.length; const notaWidth = 32; let fullLine = `${itemName} (${count}) : ${quantities.join(' + ')}`; if (fullLine.length > notaWidth) { let lines = []; let currentLine = fullLine; while (currentLine.length > notaWidth) { let breakPoint = currentLine.lastIndexOf(' ', notaWidth); if (breakPoint === -1) { breakPoint = notaWidth; } lines.push(currentLine.substring(0, breakPoint)); currentLine = '  ' + currentLine.substring(breakPoint).trim(); } lines.push(currentLine); hasil += lines.join('\n') + '\n'; } else { hasil += fullLine + '\n'; } } hasil += `\nJumlah item : ${totalItem}`; document.getElementById('previewNota').textContent = hasil; }
+function getNotaForm() { return { nama: document.getElementById('iNama').value.trim(), alamat: document.getElementById('iAlamat').value.trim(), telp: document.getElementById('iTelp').value.trim(), petani: document.getElementById('iPetani').value.trim(), tanggal: document.getElementById('iTanggal').value, barang: Array.from(document.querySelectorAll('#isiBarang .barang-container')).map(div=>({ nama: div.querySelector('.nama').value.trim(), qty: div.querySelector('.qty').value.trim(), satuan: div.querySelector('.satuan').textContent.trim(), harga: div.querySelector('.harga').value.trim() })) } }
+function salinNota() { const textToCopy = document.getElementById('previewNota').textContent; const btn = document.querySelector('button[onclick="salinNota()"]'); const originalHtml = btn.innerHTML; if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(textToCopy).then(() => { if (btn) { btn.innerHTML='<i class="fas fa-check"></i> Tersalin!'; btn.classList.add('bg-green-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-green-500', 'text-white'); }, 1500); } }).catch(err => { console.error("Gagal menyalin: ", err); if (btn) { btn.innerHTML = '<i class="fas fa-times"></i> Gagal'; btn.classList.add('bg-red-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-red-500', 'text-white'); }, 2000); } }); } else { alert('Fungsi salin tidak didukung di browser ini.'); } }
 
-    if (!data.petani) { alert("Isi nama petani dahulu!"); return; }
-    if (!data.barang.some(b => b.nama && b.qty)) { alert("Data barang masih kosong!"); return; }
-
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    let y = 20;
-
-    // Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(data.nama, margin, y);
-    y += 8;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(data.alamat, margin, y);
-    doc.text(`Telp/WA: ${data.telp}`, margin, y + 4);
-
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FAKTUR', pageWidth - margin, y, { align: 'right' });
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Tanggal: ${formatTanggalNota(data.tanggal).split(' ')[0]}`, pageWidth - margin, y + 8, { align: 'right' });
-    y += 15;
-
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 10;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Kepada Yth:', margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.petani, margin, y + 5);
-    y += 15;
-
-    // Table
-    const tableHeaders = [['No.', 'Nama Barang', 'Kuantitas', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)']];
-    const tableBody = [];
-    let grandTotal = 0;
-    let counter = 1;
-
-    (data.barang || []).forEach(b => {
-        if (!b.nama) return;
-        const qty = parseFloatSafe(b.qty);
-        const harga = parseFloatSafe(b.harga);
-        const total = qty * harga;
-        grandTotal += total;
-        tableBody.push([
-            counter++,
-            b.nama,
-            (b.qty || '0').replace('.', ','),
-            b.satuan,
-            formatRupiah(harga),
-            formatRupiah(total)
-        ]);
-    });
-
-    doc.autoTable({
-        head: tableHeaders,
-        body: tableBody,
-        startY: y,
-        theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 2 },
-        headStyles: { fillColor: [22, 160, 133], textColor: [255, 255, 255], fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-        columnStyles: {
-            0: { halign: 'center', cellWidth: 10 },
-            2: { halign: 'right' },
-            4: { halign: 'right' },
-            5: { halign: 'right' }
-        },
-        margin: { left: margin, right: margin }
-    });
-    
-    y = doc.autoTable.previous.finalY;
-
-    const footerHeight = 60;
-
-    if (y + footerHeight > pageHeight - margin) {
-        doc.addPage();
-        y = margin;
-    }
-
-    y += 15; 
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Rp ${formatRupiah(grandTotal)}`, pageWidth - margin, y, { align: 'right' });
-
-    y += 30;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const signatureX = pageWidth - margin - 50;
-    doc.text('Hormat kami,', signatureX, y);
-    y += 20;
-    doc.setLineWidth(0.3);
-    doc.line(signatureX, y, signatureX + 40, y);
-    doc.text(`(${data.nama})`, signatureX, y + 5);
-
-    const tglFile = new Date().toISOString().slice(0, 10);
-    doc.save(`faktur-${data.petani.replace(/\s/g, '_')}-${tglFile}.pdf`);
-}
-
-// --- Logika Autocomplete ---
-function getPetaniList() {
-    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-    return Object.keys(db).sort();
-}
-function getBarangList() {
-    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-    const barangSet = new Set();
-    for (const petani in db) {
-        if (db[petani]) {
-            db[petani].forEach(trx => {
-                if (trx.barang) { trx.barang.forEach(b => { if (b.nama) barangSet.add(b.nama.trim()); }); }
-            });
-        }
-    }
-    return Array.from(barangSet).sort();
-}
-function initAutocomplete(inputEl, sourceFunc) {
-    let activeSuggestion = -1;
-    let suggestionsContainer;
-    inputEl.addEventListener('input', function(e) {
-        const val = this.value;
-        closeAllLists();
-        if (!val) { return false; }
-        const source = sourceFunc();
-        suggestionsContainer = document.createElement("DIV");
-        suggestionsContainer.setAttribute("class", "autocomplete-suggestions");
-        this.parentNode.appendChild(suggestionsContainer);
-        let count = 0;
-        source.forEach(item => {
-            if (item.substr(0, val.length).toUpperCase() == val.toUpperCase() && count < 7) {
-                const suggestionDiv = document.createElement("DIV");
-                suggestionDiv.innerHTML = "<strong>" + item.substr(0, val.length) + "</strong>" + item.substr(val.length);
-                suggestionDiv.dataset.value = item;
-                suggestionDiv.addEventListener("click", function(e) {
-                    inputEl.value = this.dataset.value;
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    closeAllLists();
-                    const itemContainer = inputEl.closest('.barang-container');
-                    if (itemContainer) {
-                        const qtyInput = itemContainer.querySelector('.qty');
-                        if (qtyInput) { qtyInput.focus(); }
-                    }
-                });
-                suggestionsContainer.appendChild(suggestionDiv);
-                count++;
-            }
-        });
-    });
-    inputEl.addEventListener('keydown', function(e) {
-        let x = suggestionsContainer;
-        if (x) x = x.getElementsByTagName("div");
-        if (!x) return;
-        if (e.keyCode == 40) { activeSuggestion++; addActive(x); }
-        else if (e.keyCode == 38) { activeSuggestion--; addActive(x); }
-        else if (e.keyCode == 13) { if (activeSuggestion > -1) { e.preventDefault(); x[activeSuggestion].click(); activeSuggestion = -1; } }
-        else if (e.keyCode == 27) { closeAllLists(); }
-    });
-    function addActive(x) {
-        if (!x) return false;
-        removeActive(x);
-        if (activeSuggestion >= x.length) activeSuggestion = 0;
-        if (activeSuggestion < 0) activeSuggestion = (x.length - 1);
-        x[activeSuggestion].classList.add("active");
-    }
-    function removeActive(x) {
-        for (let i = 0; i < x.length; i++) { x[i].classList.remove("active"); }
-    }
-    function closeAllLists(elmnt) {
-        const items = document.getElementsByClassName("autocomplete-suggestions");
-        for (let i = 0; i < items.length; i++) {
-            if (elmnt != items[i] && elmnt != inputEl) { items[i].parentNode.removeChild(items[i]); }
-        }
-    }
-    document.addEventListener("click", function (e) { closeAllLists(e.target); });
-}
-
-// --- Fungsi-Fungsi Utilitas ---
-function isiTanggalOtomatis() {
-  let t = new Date();
-  let y = t.getFullYear(), m = String(t.getMonth()+1).padStart(2,"0"), d = String(t.getDate()).padStart(2,"0");
-  let H = String(t.getHours()).padStart(2,"0"), M = String(t.getMinutes()).padStart(2,"0");
-  document.getElementById('iTanggal').value = y+'-'+m+'-'+d+'T'+H+':'+M;
-  renderNota();
-}
-function formatTanggalNota(val) {
-  if(!val) return '';
-  let d = new Date(val);
-  if(isNaN(d)) return val;
-  let tgl = String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
-  let jam = String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
-  return tgl+" "+jam;
-}
-function padBoth(left, right, width) {
-  let space = width - (left.length + right.length);
-  if (space < 1) space = 1;
-  return left + ' '.repeat(space) + right;
-}
-function formatRupiah(val) {
-  if(!val) return '';
-  return Number(val).toLocaleString('id-ID');
-}
-function parseFloatSafe(numStr) {
-    if (typeof numStr !== 'string') return 0;
-    return parseFloat(numStr.replace(/\./g, '').replace(',', '.')) || 0;
-}
-function getTrxTotal(trx) {
-    return (trx.barang || []).reduce((sum, b) => sum + (parseFloatSafe(b.qty) * parseFloatSafe(b.harga)), 0);
-}
-
-// --- Fungsi-Fungsi Form dan Nota ---
-function tambahBarang(obj={}) {
-  const div = document.createElement('div');
-  div.className = "flex items-center gap-2 p-2 border rounded-lg bg-gray-50 barang-container";
-  div.innerHTML = `
-    <div class="flex-1 space-y-2">
-        <div class="autocomplete-container">
-            <input class="nama border-gray-300 rounded-md w-full p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Nama Barang" value="${obj.nama||''}" autocomplete="off">
-        </div>
-        <div class="flex gap-2">
-            <input class="qty qty-input border-gray-300 rounded-md w-1/2 p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" type="text" inputmode="decimal" placeholder="Qty" value="${obj.qty||' '}" autocomplete="off">
-            <span class="satuan self-center text-sm font-medium text-gray-600 w-8 text-center">${(obj.nama && obj.nama.toLowerCase() === 'blonceng') ? 'Bj' : (obj.satuan || 'Kg')}</span>
-            <input class="harga border-gray-300 rounded-md flex-1 p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" type="text" inputmode="decimal" placeholder="Harga/Satuan" value="${obj.harga||''}" autocomplete="off">
-        </div>
-    </div>
-    <button type="button" onclick="this.parentNode.remove();renderNota()" title="Hapus Barang" class="bg-red-100 text-red-700 rounded-full w-9 h-9 flex items-center justify-center font-bold text-2xl hover:bg-red-200 transition-all flex-shrink-0">&times;</button>
-  `;
-  const inpNama = div.querySelector('.nama');
-  const inpQty = div.querySelector('.qty');
-  const inpHarga = div.querySelector('.harga');
-  initAutocomplete(inpNama, getBarangList);
-  inpNama.addEventListener('input', function() {
-    div.querySelector('.satuan').textContent = (inpNama.value.trim().toLowerCase() === "blonceng" ? "Bj" : "Kg");
-    renderNota();
-  });
-  inpQty.addEventListener('input', renderNota);
-  inpHarga.addEventListener('input', function(e) {
-    if (e.target.value.includes('..')) {
-        const namaBarangSebelumnya = inpNama.value;
-        const qtySebelumnya = inpQty.value;
-        e.target.value = e.target.value.replace('..', '');
-        tambahBarang({ nama: namaBarangSebelumnya, qty: qtySebelumnya });
-        const allHargaInputs = document.querySelectorAll('#isiBarang .harga');
-        const lastHargaInput = allHargaInputs[allHargaInputs.length - 1];
-        if (lastHargaInput) { lastHargaInput.focus(); }
-    }
-    renderNota();
-  });
-  inpHarga.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const now = new Date().getTime();
-        const timeDiff = now - lastEnterPressTime;
-        if (timeDiff < 500) {
-            tambahBarang();
-            const allNamaInputs = document.querySelectorAll('#isiBarang .nama');
-            const lastNamaInput = allNamaInputs[allNamaInputs.length - 1];
-            if (lastNamaInput) { lastNamaInput.focus(); }
-            lastEnterPressTime = 0;
-        } else {
-            lastEnterPressTime = now;
-        }
-    }
-  });
-  document.getElementById('isiBarang').appendChild(div);
-  renderNota();
-}
-
-function renderNota() {
-  const data = getNotaForm();
-  let hasil = `${data.nama}\n${data.alamat} | Wa:${data.telp}\n${(data.petani?data.petani+" | ":"")}${formatTanggalNota(data.tanggal)}\n==============================\n`;
-  const barangMap = new Map();
-  const itemDetails = {};
-  let totalItem = 0, totalHarga = 0;
-
-  (data.barang||[]).forEach(b=>{
-    if(!b.nama) return;
-    if (!itemDetails[b.nama]) { itemDetails[b.nama] = []; }
-    const qtyValue = b.qty.trim();
-    if (qtyValue) {
-        itemDetails[b.nama].push(qtyValue);
-    }
-    let key = b.nama.toLowerCase()+"|"+b.satuan+"|"+b.harga;
-    let qty = parseFloatSafe(b.qty);
-    let harga = parseFloatSafe(b.harga);
-    if(barangMap.has(key)){
-      let t=barangMap.get(key); t.qty+=qty; t.total+=qty*harga;
-    } else {
-      barangMap.set(key,{nama:b.nama,satuan:b.satuan,harga:harga,qty:qty,total:qty*harga});
-    }
-    totalItem++;
-    totalHarga+=qty*harga;
-  });
-
-  barangMap.forEach(item=>{
-    let qtyStr = (item.qty%1===0) ? item.qty : item.qty.toFixed(2).replace(".",",");
-    if(item.harga > 0){
-      hasil += `${item.nama}\n` + padBoth(`${qtyStr} ${item.satuan} × ${formatRupiah(item.harga)}`, formatRupiah(item.total), 32) + "\n";
-    } else {
-      hasil += padBoth(item.nama, `${qtyStr} ${item.satuan}`, 32) + "\n";
-    }
-  });
-
-  hasil += "==============================\n";
-  if(totalHarga > 0) hasil += padBoth("Total:", formatRupiah(totalHarga), 32) + "\n";
-  
-  hasil += "Keterangan item:\n";
-
-  for(const itemName in itemDetails) {
-      const quantities = itemDetails[itemName].filter(q => q && q.trim());
-      if (quantities.length === 0) continue;
-
-      const count = quantities.length;
-      const notaWidth = 32;
-      let fullLine = `${itemName} (${count}) : ${quantities.join(', ')}`;
-
-      if (fullLine.length > notaWidth) {
-          let lines = [];
-          let currentLine = fullLine;
-          while (currentLine.length > notaWidth) {
-              let breakPoint = currentLine.lastIndexOf(' ', notaWidth);
-              if (breakPoint === -1) { breakPoint = notaWidth; }
-              lines.push(currentLine.substring(0, breakPoint));
-              currentLine = '  ' + currentLine.substring(breakPoint).trim();
-          }
-          lines.push(currentLine);
-          hasil += lines.join('\n') + '\n';
-      } else {
-          hasil += fullLine + '\n';
-      }
-  }
-  
-  hasil += `Jumlah item : ${totalItem}`;
-  document.getElementById('previewNota').textContent = hasil;
-}
-
-function getNotaForm() {
-  return {
-    nama: document.getElementById('iNama').value.trim(),
-    alamat: document.getElementById('iAlamat').value.trim(),
-    telp: document.getElementById('iTelp').value.trim(),
-    petani: document.getElementById('iPetani').value.trim(),
-    tanggal: document.getElementById('iTanggal').value,
-    barang: Array.from(document.querySelectorAll('#isiBarang .barang-container')).map(div=>({
-      nama: div.querySelector('.nama').value.trim(),
-      qty: div.querySelector('.qty').value.trim(),
-      satuan: div.querySelector('.satuan').textContent.trim(),
-      harga: div.querySelector('.harga').value.trim()
-    }))
-  }
-}
-
-function salinNota() {
-  const textToCopy = document.getElementById('previewNota').textContent;
-  const btn = document.querySelector('button[onclick="salinNota()"]');
-  const originalText = btn ? btn.textContent : 'Salin';
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      if (btn) {
-          btn.textContent='Tersalin!';
-          setTimeout(()=> { btn.textContent = originalText; }, 1500);
-      }
-    }).catch(err => {
-      console.error("Gagal menyalin: ", err);
-      if (btn) {
-          btn.textContent = 'Gagal';
-          setTimeout(()=> { btn.textContent = originalText; }, 2000);
-      }
-    });
-  } else {
-    alert('Fungsi salin tidak didukung di browser ini.');
-  }
-}
-
-// --- Fungsi-Fungsi Manajemen Data (Simpan, Edit, Hapus) ---
 function simpanTransaksi() {
-  const obj = getNotaForm();
-  if(!obj.petani){ alert("Isi nama petani dahulu!"); return; }
-  if(!obj.barang.some(b => b.nama && b.qty)){ alert("Data barang masih kosong!"); return; }
-  let db = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-  const editIndex = document.getElementById('editIndex').value;
-  if (editIndex !== '') {
-    db[obj.petani][parseInt(editIndex)] = obj;
-  } else {
-    if(!db[obj.petani]) db[obj.petani]=[];
-    db[obj.petani].push(obj);
-  }
-  localStorage.setItem(LS_KEY, JSON.stringify(db));
-  let trxCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0');
-  localStorage.setItem('conf_transactionsSinceLastBackup', trxCount + 1);
-  salinNota();
-  if (editIndex !== '') {
-    alert("Transaksi berhasil diperbarui!");
-    if (document.getElementById('rekapArea').innerHTML !== '') { showTabelRekap(obj.petani); }
-  } else {
-    alert("Transaksi berhasil disimpan!");
-  }
-  initForm();
-}
-function initForm() {
-  document.getElementById('iNama').value = localStorage.getItem('conf_nama') || "Nama Toko Anda";
-  document.getElementById('iAlamat').value = localStorage.getItem('conf_alamat') || "Alamat Toko";
-  document.getElementById('iTelp').value = localStorage.getItem('conf_telp') || "No. WhatsApp";
-  document.getElementById('iPetani').value = "";
-  document.getElementById('iPetani').readOnly = false;
-  document.getElementById('iTanggal').value = "";
-  document.getElementById('isiBarang').innerHTML = "";
-  document.getElementById('editIndex').value = "";
-  const btnSimpan = document.getElementById('btnSimpan');
-  btnSimpan.textContent = "Simpan Nota";
-  btnSimpan.classList.remove('bg-green-600');
-  btnSimpan.classList.add('bg-blue-600');
-  tambahBarang();
-  isiTanggalOtomatis();
-  document.getElementById('iPetani').focus();
-  renderNota();
-  initAutocomplete(document.getElementById('iPetani'), getPetaniList);
-}
-function muatUlangTransaksi(petani, trxIndex) {
-  const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-  const trx = db[petani]?.[trxIndex];
-  if (!trx) { alert("Data transaksi tidak ditemukan!"); return; }
-  document.getElementById('iNama').value = trx.nama;
-  document.getElementById('iAlamat').value = trx.alamat;
-  document.getElementById('iTelp').value = trx.telp;
-  document.getElementById('iPetani').value = trx.petani;
-  document.getElementById('iPetani').readOnly = true;
-  document.getElementById('iTanggal').value = trx.tanggal;
-  document.getElementById('editIndex').value = trxIndex;
-  const btnSimpan = document.getElementById('btnSimpan');
-  btnSimpan.textContent = "Update Nota";
-  btnSimpan.classList.replace('bg-blue-600', 'bg-green-600');
-  document.getElementById('isiBarang').innerHTML = '';
-  if (trx.barang && trx.barang.length > 0) trx.barang.forEach(b => tambahBarang(b));
-  else tambahBarang();
-  renderNota();
-  window.scrollTo(0, 0);
-  alert(`Mode Edit untuk transaksi tanggal ${formatTanggalNota(trx.tanggal)}.`);
-}
-function hapusTransaksi(petani, trxIndex) {
-  if (!confirm(`Apakah Anda yakin ingin menghapus transaksi ini secara permanen?`)) return;
-  if (document.getElementById('editIndex').value === String(trxIndex) && document.getElementById('iPetani').value === petani) { initForm(); }
-  let db = JSON.parse(localStorage.getItem(LS_KEY));
-  db[petani].splice(trxIndex, 1);
-  if (db[petani].length === 0) delete db[petani];
-  localStorage.setItem(LS_KEY, JSON.stringify(db));
-  alert('Transaksi berhasil dihapus.');
-  showTabelRekap(petani);
-}
-
-// --- Fungsi-Fungsi Rekap dan Dashboard ---
-function tampilkanRekap() {
-  const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-  const rekapArea = document.getElementById('rekapArea');
-  if (rekapArea.innerHTML !== '') {
-      rekapArea.innerHTML = '';
-      document.getElementById('btnExportCsv').classList.add('hidden');
-      if(rekapChart) rekapChart.destroy();
-      return;
-  }
-  let html = `<div id="dashboardArea" class="mb-4"><h2 class="text-lg font-semibold text-gray-700 border-b pb-2 mb-3">Dashboard</h2><div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-center"><div class="bg-blue-100 p-3 rounded-lg"><div class="text-xs text-blue-800 uppercase font-semibold">Total Omzet</div><div id="statTotalOmzet" class="text-lg md:text-xl font-bold text-blue-900">Rp 0</div></div><div class="bg-green-100 p-3 rounded-lg"><div class="text-xs text-green-800 uppercase font-semibold">Trx Hari Ini</div><div id="statTrxHariIni" class="text-lg md:text-xl font-bold text-green-900">0</div></div><div class="bg-yellow-100 p-3 rounded-lg col-span-2 md:col-span-1"><div class="text-xs text-yellow-800 uppercase font-semibold">Petani Terbaik (Bulan Ini)</div><div id="statPetaniTerbaik" class="text-lg md:text-xl font-bold text-yellow-900">-</div></div></div><div class="mt-4"><canvas id="chart7Hari"></canvas></div></div><h2 class="text-lg font-semibold text-gray-700 border-b pb-2 mt-6">Detail Rekap</h2><div class="space-y-3 p-3 bg-gray-50 rounded-lg border mt-3"><select id="pilihPetani" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" onchange="showTabelRekap(this.value)"><option value="">-- Pilih Petani --</option>`;
-  Object.keys(db).sort().forEach(p=>{ html+=`<option value="${p}">${p}</option>`; });
-  html+=`</select><input type="search" id="rekapSearch" oninput="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="🔍 Cari nama barang..."><div class="flex gap-2 items-center text-sm"><label for="rekapMulai" class="text-gray-600">Dari:</label><input type="date" id="rekapMulai" onchange="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"><label for="rekapSelesai" class="text-gray-600">Sampai:</label><input type="date" id="rekapSelesai" onchange="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></div></div><div id="tabelRekap" class="mt-4"></div>`;
-  rekapArea.innerHTML = html;
-  renderDashboard();
-  showTabelRekap();
-}
-
-function renderDashboard() {
-  const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-  
-  let totalOmzet = 0;
-  let trxHariIni = 0;
-  const today = new Date().toISOString().slice(0, 10);
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  let omzetPerPetaniBulanIni = {};
-  const dateMap = new Map();
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dateMap.set(d.toISOString().slice(0, 10), 0);
-  }
-  const labels = Array.from(dateMap.keys()).map(d => `${d.slice(8,10)}/${d.slice(5,7)}`);
-
-  for (const petani in db) {
-      if (petani === 'Admin') {
-          continue;
-      }
-
-      db[petani].forEach(trx => {
-          const trxTotal = getTrxTotal(trx);
-          totalOmzet += trxTotal;
-
-          if (trx.tanggal && trx.tanggal.slice(0, 10) === today) {
-              trxHariIni++;
-          }
-          
-          if (trx.tanggal && trx.tanggal.slice(0, 7) === currentMonth) {
-              omzetPerPetaniBulanIni[trx.petani] = (omzetPerPetaniBulanIni[trx.petani] || 0) + trxTotal;
-          }
-
-          if (trx.tanggal) {
-              const trxDate = trx.tanggal.slice(0, 10);
-              if (dateMap.has(trxDate)) {
-                  dateMap.set(trxDate, dateMap.get(trxDate) + trxTotal);
-              }
-          }
-      });
-  }
-
-  let petaniTerbaik = '-';
-  let maxOmzetBulanIni = 0;
-  for(const p in omzetPerPetaniBulanIni){
-      if(omzetPerPetaniBulanIni[p] > maxOmzetBulanIni){
-          maxOmzetBulanIni = omzetPerPetaniBulanIni[p];
-          petaniTerbaik = p;
-      }
-  }
-
-  document.getElementById('statTotalOmzet').textContent = 'Rp ' + formatRupiah(totalOmzet);
-  document.getElementById('statTrxHariIni').textContent = trxHariIni;
-  document.getElementById('statPetaniTerbaik').textContent = petaniTerbaik;
-  
-  const data7hari = Array.from(dateMap.values());
-  const ctx = document.getElementById('chart7Hari').getContext('2d');
-  if(rekapChart) rekapChart.destroy();
-  rekapChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{ label: 'Omzet per Hari', data: data7hari, backgroundColor: 'rgba(59, 130, 246, 0.5)', borderColor: 'rgba(59, 130, 246, 1)', borderWidth: 1 }]
-    },
-    options: {
-      scales: { y: { beginAtZero: true } },
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return `Omzet: Rp ${formatRupiah(context.raw)}`; } } } }
+    const obj = getNotaForm();
+    if(!obj.petani){ alert("Isi nama petani dahulu!"); return; }
+    if(!obj.barang.some(b => b.nama && b.qty)){ alert("Data barang masih kosong!"); return; }
+    let db = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
+    const editIndex = document.getElementById('editIndex').value;
+    if (editIndex !== '') {
+        db[obj.petani][parseInt(editIndex)] = obj;
+    } else {
+        if(!db[obj.petani]) db[obj.petani]=[];
+        db[obj.petani].push(obj);
+        // Hanya increment counter untuk transaksi baru, bukan saat edit
+        let trxCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0');
+        localStorage.setItem('conf_transactionsSinceLastBackup', trxCount + 1);
     }
-  });
-}
+    localStorage.setItem(LS_KEY, JSON.stringify(db));
+    
+    updateBackupCardStatus(); // PERBARUI STATUS BACKUP
+    salinNota();
 
-function sortTable(key) {
-    if (sortState.key === key) { sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc'; }
-    else { sortState.key = key; sortState.direction = (key === 'tanggal') ? 'desc' : 'asc'; }
-    showTabelRekap();
-}
-window.showTabelRekap = function(petani){
-  const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-  petani = petani || document.getElementById('pilihPetani')?.value;
-  const btnExport = document.getElementById('btnExportCsv');
-  if(!petani) {
-    document.getElementById('tabelRekap').innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Pilih seorang petani untuk melihat detail rekap.</p>";
-    if (btnExport) btnExport.classList.add('hidden');
-    return;
-  }
-  if (document.getElementById('pilihPetani')) { document.getElementById('pilihPetani').value = petani; }
-  let trxList = db[petani] || [];
-  const searchTerm = document.getElementById('rekapSearch')?.value.toLowerCase() || '';
-  const tglMulai = document.getElementById('rekapMulai')?.value || '';
-  const tglSelesai = document.getElementById('rekapSelesai')?.value || '';
-  let filteredTrx = trxList.filter(trx => {
-    const trxDate = trx.tanggal.slice(0, 10);
-    if (tglMulai && trxDate < tglMulai) return false;
-    if (tglSelesai && trxDate > tglSelesai) return false;
-    if (searchTerm && !(trx.barang || []).some(b => b.nama.toLowerCase().includes(searchTerm))) return false;
-    return true;
-  });
-  filteredTrx.sort((a, b) => {
-    const dir = sortState.direction === 'asc' ? 1 : -1;
-    switch (sortState.key) {
-        case 'tanggal': return (new Date(a.tanggal) - new Date(b.tanggal)) * dir;
-        case 'total': return (getTrxTotal(a) - getTrxTotal(b)) * dir;
-        default: return 0;
-    }
-  });
-  if(!filteredTrx.length) {
-    document.getElementById('tabelRekap').innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Tidak ada data transaksi yang cocok dengan filter.</p>";
-    btnExport.classList.add('hidden');
-    return;
-  }
-  btnExport.classList.remove('hidden');
-  const sortIndicator = (key) => {
-    if (sortState.key === key) return sortState.direction === 'asc' ? ' ▲' : ' ▼';
-    return '';
-  };
-  let out = `<div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-600"><thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th class="px-4 py-3 align-top sortable" onclick="sortTable('tanggal')">Tanggal${sortIndicator('tanggal')}</th><th class="px-4 py-3">Item</th><th class="px-4 py-3 text-right align-top sortable" onclick="sortTable('total')">Total${sortIndicator('total')}</th><th class="px-4 py-3 text-center align-top">Aksi</th></tr></thead><tbody>`;
-  let grandTotal = 0;
-  filteredTrx.forEach((trx)=>{
-    const originalIndex = trxList.findIndex(originalTrx => originalTrx.tanggal === trx.tanggal && JSON.stringify(originalTrx.barang) === JSON.stringify(trx.barang) );
-    let totalPerTrx = getTrxTotal(trx);
-    let itemSummary = (trx.barang||[]).filter(b => b.nama && b.qty).map(b => {
-        let classes = "inline-block bg-gray-200 text-gray-800 text-xs font-semibold mr-1 mb-1 px-2.5 py-1 rounded-full";
-        if(searchTerm && b.nama.toLowerCase().includes(searchTerm)) classes += " bg-yellow-200";
-        return `<span class="${classes}">${b.nama} (${b.qty} ${b.satuan})</span>`;
-      }).join(' ');
-    out+=`<tr class="border-b odd:bg-white even:bg-gray-50"><td class="px-4 py-3 align-top">${formatTanggalNota(trx.tanggal||"")}</td><td class="px-4 py-3">${itemSummary || '<i>(Tidak ada item)</i>'}</td><td class="px-4 py-3 text-right align-top">${formatRupiah(totalPerTrx)}</td><td class="px-4 py-3 text-center align-top whitespace-nowrap"><button class="font-medium text-blue-600 hover:underline" onclick="muatUlangTransaksi('${petani}', ${originalIndex})">Edit</button><button class="font-medium text-red-600 hover:underline ml-3" onclick="hapusTransaksi('${petani}', ${originalIndex})">Hapus</button></td></tr>`;
-    grandTotal += totalPerTrx;
-  });
-  out+=`<tr class="bg-gray-100 font-bold"><td colspan="2" class="px-4 py-3 text-right uppercase">GRAND TOTAL (setelah filter)</td><td class="px-4 py-3 text-right">${formatRupiah(grandTotal)}</td><td></td></tr></tbody></table></div>`;
-  document.getElementById('tabelRekap').innerHTML=out;
-}
-function exportToCSV() {
-    const petani = document.getElementById('pilihPetani').value;
-    if (!petani) { alert("Pilih petani terlebih dahulu!"); return; }
-    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-    const trxList = db[petani] || [];
-    let grandTotal = 0;
-    let csvContent = `Nama Toko:,"${document.getElementById('iNama').value}"\nAlamat:,"${document.getElementById('iAlamat').value}"\nNo. WA:,"${document.getElementById('iTelp').value}"\n\nNo. Trx,Nama Petani,Tanggal,Jam,Barang,Qty,Satuan,Harga,Subtotal\n`;
-    trxList.forEach((trx, i) => {
-        (trx.barang || []).forEach(b => {
-            const qty = parseFloatSafe(b.qty);
-            const harga = parseFloatSafe(b.harga);
-            const subtotal = qty * harga;
-            grandTotal += subtotal;
-            const line = [ i + 1, `"${petani}"`, formatTanggalNota(trx.tanggal || "").split(" ")[0] || '', formatTanggalNota(trx.tanggal || "").split(" ")[1] || '', `"${(b.nama || '').replace(/"/g, '""')}"`, (b.qty || '0').replace('.',','), b.satuan || '', harga, subtotal ].join(',');
-            csvContent += line + "\n";
-        });
-    });
-    csvContent += `\n,,,,,,,GRAND TOTAL,${grandTotal}\n`;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `rekap_${petani}_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function buatRingkasanAdmin() {
-    const hariIni = new Date().toISOString().slice(0, 10);
-    const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-
-    let rekapHariIniIndex = -1;
-    if (db['Admin']) {
-        rekapHariIniIndex = db['Admin'].findIndex(trx => trx.tanggal && trx.tanggal.slice(0, 10) === hariIni);
-    }
-
-    if (rekapHariIniIndex !== -1) {
-        if (!confirm("Ringkasan untuk hari ini sudah ada. Apakah Anda ingin MENGHAPUSNYA dan membuat ulang dengan data terbaru?")) {
-            return;
+    if (editIndex !== '') {
+        alert("Transaksi berhasil diperbarui!");
+        if (document.getElementById('rekapArea').innerHTML !== '') {
+            showTabelRekap(obj.petani);
         }
+    } else {
+        alert("Transaksi berhasil disimpan!");
     }
+    initForm();
+}
 
-    const semuaBarangHariIni = [];
-    let totalTransaksiDiringkas = 0;
+function initForm() { document.getElementById('iNama').value = localStorage.getItem('conf_nama') || "Nama Toko Anda"; document.getElementById('iAlamat').value = localStorage.getItem('conf_alamat') || "Alamat Toko"; document.getElementById('iTelp').value = localStorage.getItem('conf_telp') || "No. WhatsApp"; document.getElementById('iPetani').value = ""; document.getElementById('iPetani').readOnly = false; document.getElementById('iTanggal').value = ""; document.getElementById('isiBarang').innerHTML = ""; document.getElementById('editIndex').value = ""; const btnSimpan = document.getElementById('btnSimpan'); btnSimpan.innerHTML = '<i class="fas fa-save"></i> Simpan Nota'; btnSimpan.style.backgroundColor = 'var(--primary)'; tambahBarang(); isiTanggalOtomatis(); document.getElementById('iPetani').focus(); renderNota(); initAutocomplete(document.getElementById('iPetani'), getPetaniList); }
+function muatUlangTransaksi(petani, trxIndex) { const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const trx = db[petani]?.[trxIndex]; if (!trx) { alert("Data transaksi tidak ditemukan!"); return; } document.getElementById('iNama').value = trx.nama; document.getElementById('iAlamat').value = trx.alamat; document.getElementById('iTelp').value = trx.telp; document.getElementById('iPetani').value = trx.petani; document.getElementById('iPetani').readOnly = true; document.getElementById('iTanggal').value = trx.tanggal; document.getElementById('editIndex').value = trxIndex; const btnSimpan = document.getElementById('btnSimpan'); btnSimpan.innerHTML = '<i class="fas fa-edit"></i> Update Nota'; btnSimpan.style.backgroundColor = 'var(--secondary)'; document.getElementById('isiBarang').innerHTML = ''; if (trx.barang && trx.barang.length > 0) trx.barang.forEach(b => tambahBarang(b)); else tambahBarang(); renderNota(); window.scrollTo({ top: 0, behavior: 'smooth' }); alert(`Mode Edit untuk transaksi tanggal ${formatTanggalNota(trx.tanggal)}.`); }
+function hapusTransaksi(petani, trxIndex) { if (!confirm(`Yakin ingin menghapus transaksi ini?`)) return; if (document.getElementById('editIndex').value === String(trxIndex) && document.getElementById('iPetani').value === petani) { initForm(); } let db = JSON.parse(localStorage.getItem(LS_KEY)); db[petani].splice(trxIndex, 1); if (db[petani].length === 0) delete db[petani]; localStorage.setItem(LS_KEY, JSON.stringify(db)); alert('Transaksi dihapus.'); showTabelRekap(petani); }
+function tampilkanRekap() { const rekapArea = document.getElementById('rekapArea'); if (rekapArea.innerHTML !== '') { rekapArea.innerHTML = ''; document.getElementById('btnExportCsv').classList.add('hidden'); if(rekapChart) { rekapChart.destroy(); rekapChart = null; } return; } let html = `<div id="dashboardArea" class="mb-4 p-4 card rounded-lg"><h3 class="text-xl font-semibold border-b pb-2 mb-3">Dashboard Umum</h3><div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-center"><div class="bg-blue-100 p-3 rounded-lg"><div class="text-xs text-blue-800 uppercase font-semibold">Total Omzet</div><div id="statTotalOmzet" class="text-lg md:text-xl font-bold text-blue-900">Rp 0</div></div><div class="bg-green-100 p-3 rounded-lg"><div class="text-xs text-green-800 uppercase font-semibold">Trx Hari Ini</div><div id="statTrxHariIni" class="text-lg md:text-xl font-bold text-green-900">0</div></div><div class="bg-yellow-100 p-3 rounded-lg col-span-2 md:col-span-1"><div class="text-xs text-yellow-800 uppercase font-semibold">Petani Terbaik</div><div id="statPetaniTerbaik" class="text-lg md:text-xl font-bold text-yellow-900">-</div></div></div><div class="mt-4"><canvas id="chart7Hari"></canvas></div></div><h3 class="text-xl font-semibold border-b pb-2 mt-6">Detail Rekap per Petani</h3><div class="space-y-3 p-4 card rounded-lg bg-gray-50 mt-3"><select id="pilihPetani" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900" onchange="showTabelRekap(this.value)"><option value="">-- Pilih Petani --</option>`; const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); Object.keys(db).sort().forEach(p=>{ html+=`<option value="${p}">${p}</option>`; }); html+=`</select><input type="search" id="rekapSearch" oninput="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 placeholder-gray-400" placeholder="🔍 Cari nama barang..."><div class="flex flex-col sm:flex-row gap-2 items-center text-sm"><label for="rekapMulai" class="text-gray-600">Dari:</label><input type="date" id="rekapMulai" onchange="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900"><label for="rekapSelesai" class="text-gray-600">Sampai:</label><input type="date" id="rekapSelesai" onchange="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900"></div></div><div id="tabelRekap" class="mt-4"></div>`; rekapArea.innerHTML = html; renderDashboard(); showTabelRekap(); }
+function renderDashboard() { const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); let totalOmzet = 0, trxHariIni = 0; const today = new Date().toISOString().slice(0, 10); const currentMonth = new Date().toISOString().slice(0, 7); let omzetPerPetaniBulanIni = {}; const dateMap = new Map(); for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); dateMap.set(d.toISOString().slice(0, 10), 0); } const labels = Array.from(dateMap.keys()).map(d => `${d.slice(8,10)}/${d.slice(5,7)}`); for (const petani in db) { if (petani === 'Admin') continue; db[petani].forEach(trx => { const trxTotal = getTrxTotal(trx); totalOmzet += trxTotal; if (trx.tanggal && trx.tanggal.slice(0, 10) === today) trxHariIni++; if (trx.tanggal && trx.tanggal.slice(0, 7) === currentMonth) omzetPerPetaniBulanIni[trx.petani] = (omzetPerPetaniBulanIni[trx.petani] || 0) + trxTotal; if (trx.tanggal) { const trxDate = trx.tanggal.slice(0, 10); if (dateMap.has(trxDate)) dateMap.set(trxDate, dateMap.get(trxDate) + trxTotal); } }); } let petaniTerbaik = '-', maxOmzetBulanIni = 0; for(const p in omzetPerPetaniBulanIni){ if(omzetPerPetaniBulanIni[p] > maxOmzetBulanIni){ maxOmzetBulanIni = omzetPerPetaniBulanIni[p]; petaniTerbaik = p; } } document.getElementById('statTotalOmzet').textContent = 'Rp ' + formatRupiah(totalOmzet); document.getElementById('statTrxHariIni').textContent = trxHariIni; document.getElementById('statPetaniTerbaik').textContent = petaniTerbaik; const data7hari = Array.from(dateMap.values()); const ctx = document.getElementById('chart7Hari').getContext('2d'); const gridColor = 'rgba(0, 0, 0, 0.1)'; const textColor = '#6b7280'; if(rekapChart) rekapChart.destroy(); rekapChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Omzet per Hari', data: data7hari, backgroundColor: 'rgba(64, 145, 108, 0.6)', borderColor: 'rgba(64, 145, 108, 1)', borderWidth: 1, borderRadius: 5 }] }, options: { responsive: true, scales: { y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, padding: 10 } }, x: { grid: { display: false }, ticks: { color: textColor } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return `Omzet: Rp ${formatRupiah(context.raw)}`; } } } } } }); }
+function sortTable(key) { if (sortState.key === key) { sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc'; } else { sortState.key = key; sortState.direction = (key === 'tanggal') ? 'desc' : 'asc'; } showTabelRekap(); }
+window.showTabelRekap = function(petani){ const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); petani = petani || document.getElementById('pilihPetani')?.value; const btnExport = document.getElementById('btnExportCsv'); const tabelRekapArea = document.getElementById('tabelRekap'); if(!petani) { tabelRekapArea.innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Pilih seorang petani untuk melihat detail rekap.</p>"; if (btnExport) btnExport.classList.add('hidden'); return; } if (document.getElementById('pilihPetani')) document.getElementById('pilihPetani').value = petani; let trxList = db[petani] || []; const searchTerm = document.getElementById('rekapSearch')?.value.toLowerCase() || ''; const tglMulai = document.getElementById('rekapMulai')?.value || ''; const tglSelesai = document.getElementById('rekapSelesai')?.value || ''; let filteredTrx = trxList.filter(trx => { const trxDate = trx.tanggal.slice(0, 10); if (tglMulai && trxDate < tglMulai) return false; if (tglSelesai && trxDate > tglSelesai) return false; if (searchTerm && !(trx.barang || []).some(b => b.nama.toLowerCase().includes(searchTerm))) return false; return true; }); filteredTrx.sort((a, b) => { const dir = sortState.direction === 'asc' ? 1 : -1; switch (sortState.key) { case 'tanggal': return (new Date(a.tanggal) - new Date(b.tanggal)) * dir; case 'total': return (getTrxTotal(a) - getTrxTotal(b)) * dir; default: return 0; } }); if(!filteredTrx.length) { tabelRekapArea.innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Tidak ada data transaksi yang cocok dengan filter.</p>"; btnExport.classList.add('hidden'); return; } btnExport.classList.remove('hidden'); const sortIndicator = (key) => { if (sortState.key === key) return sortState.direction === 'asc' ? ' <i class="fas fa-arrow-up text-xs"></i>' : ' <i class="fas fa-arrow-down text-xs"></i>'; return ''; }; let out = `<div class="overflow-x-auto card rounded-lg"><table class="w-full text-sm text-left"><thead class="text-xs uppercase bg-gray-100 text-gray-600"><tr><th class="px-4 py-3 align-top sortable" onclick="sortTable('tanggal')">Tanggal${sortIndicator('tanggal')}</th><th class="px-4 py-3">Item</th><th class="px-4 py-3 text-right align-top sortable" onclick="sortTable('total')">Total${sortIndicator('total')}</th><th class="px-4 py-3 text-center align-top">Aksi</th></tr></thead><tbody>`; let grandTotal = 0; filteredTrx.forEach((trx)=>{ const originalIndex = trxList.findIndex(originalTrx => originalTrx.tanggal === trx.tanggal && JSON.stringify(originalTrx.barang) === JSON.stringify(trx.barang) ); let totalPerTrx = getTrxTotal(trx); let itemSummary = (trx.barang||[]).filter(b => b.nama && b.qty).map(b => { let classes = "inline-block bg-gray-200 text-gray-800 text-xs font-semibold mr-1 mb-1 px-2.5 py-1 rounded-full"; if(searchTerm && b.nama.toLowerCase().includes(searchTerm)) classes += " bg-yellow-200"; return `<span class="${classes}">${b.nama} (${b.qty} ${b.satuan})</span>`; }).join(' '); out+=`<tr class="border-b"><td class="px-4 py-3 align-top whitespace-nowrap">${formatTanggalNota(trx.tanggal||"")}</td><td class="px-4 py-3">${itemSummary || '<i>-</i>'}</td><td class="px-4 py-3 text-right align-top whitespace-nowrap">Rp ${formatRupiah(totalPerTrx)}</td><td class="px-4 py-3 text-center align-top whitespace-nowrap"><button class="font-medium text-blue-600 hover:underline" onclick="muatUlangTransaksi('${petani}', ${originalIndex})">Edit</button><button class="font-medium text-red-600 hover:underline ml-3" onclick="hapusTransaksi('${petani}', ${originalIndex})">Hapus</button></td></tr>`; grandTotal += totalPerTrx; }); out+=`<tr class="bg-gray-100 font-bold"><td colspan="2" class="px-4 py-3 text-right uppercase">GRAND TOTAL</td><td class="px-4 py-3 text-right whitespace-nowrap">Rp ${formatRupiah(grandTotal)}</td><td></td></tr></tbody></table></div>`; tabelRekapArea.innerHTML=out; }
+function exportToCSV() { const petani = document.getElementById('pilihPetani').value; if (!petani) { alert("Pilih petani terlebih dahulu!"); return; } const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const trxList = db[petani] || []; let grandTotal = 0; let csvContent = `Nama Toko:,"${document.getElementById('iNama').value}"\nAlamat:,"${document.getElementById('iAlamat').value}"\nNo. WA:,"${document.getElementById('iTelp').value}"\n\nNo. Trx,Nama Petani,Tanggal,Jam,Barang,Qty,Satuan,Harga,Subtotal\n`; trxList.forEach((trx, i) => { (trx.barang || []).forEach(b => { const qty = parseFloatSafe(b.qty); const harga = parseFloatSafe(b.harga); const subtotal = qty * harga; grandTotal += subtotal; const line = [ i + 1, `"${petani}"`, formatTanggalNota(trx.tanggal || "").split(" ")[0] || '', formatTanggalNota(trx.tanggal || "").split(" ")[1] || '', `"${(b.nama || '').replace(/"/g, '""')}"`, (b.qty || '0').replace('.',','), b.satuan || '', harga, subtotal ].join(','); csvContent += line + "\n"; }); }); csvContent += `\n,,,,,,,GRAND TOTAL,${grandTotal}\n`; const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", `rekap_${petani}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
+function buatRingkasanAdmin() { const hariIni = new Date().toISOString().slice(0, 10); const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); let rekapHariIniIndex = -1; if (db['Admin']) rekapHariIniIndex = db['Admin'].findIndex(trx => trx.tanggal && trx.tanggal.slice(0, 10) === hariIni); if (rekapHariIniIndex !== -1) if (!confirm("Ringkasan untuk hari ini sudah ada. Hapus dan buat ulang?")) return; const semuaBarangHariIni = []; let totalTransaksiDiringkas = 0; for (const petani in db) { if (petani === 'Admin') continue; db[petani].forEach(trx => { if (trx.tanggal && trx.tanggal.slice(0, 10) === hariIni) { totalTransaksiDiringkas++; if (trx.barang && trx.barang.length > 0) semuaBarangHariIni.push(...trx.barang); } }); } if (totalTransaksiDiringkas === 0) { alert("Tidak ada transaksi untuk diringkas hari ini."); return; } const barangKolektif = semuaBarangHariIni.filter(b => b.nama && b.qty); if (barangKolektif.length === 0) { alert("Tidak ada item barang valid untuk diringkas."); return; } const ringkasanAdmin = { nama: document.getElementById('iNama').value, alamat: document.getElementById('iAlamat').value, telp: document.getElementById('iTelp').value, petani: 'Admin', tanggal: new Date().toISOString(), barang: barangKolektif }; if (!db['Admin']) db['Admin'] = []; if (rekapHariIniIndex !== -1) db['Admin'].splice(rekapHariIniIndex, 1); db['Admin'].push(ringkasanAdmin); localStorage.setItem(LS_KEY, JSON.stringify(db)); alert(`Ringkasan harian dibuat!\nTotal ${totalTransaksiDiringkas} transaksi dengan ${barangKolektif.length} item dikumpulkan.`); if (document.getElementById('rekapArea').innerHTML !== '') tampilkanRekap(); }
 
-    for (const petani in db) {
-        if (petani === 'Admin') continue;
+function backupData() {
+    const semuaData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        semuaData[key] = localStorage.getItem(key);
+    }
+    const now = new Date();
+    const tgl = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
+    const blob = new Blob([JSON.stringify(semuaData)], {type: "application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `backup-nota-rekap-${tgl}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
 
-        db[petani].forEach(trx => {
-            if (trx.tanggal && trx.tanggal.slice(0, 10) === hariIni) {
-                totalTransaksiDiringkas++;
-                if (trx.barang && trx.barang.length > 0) {
-                    semuaBarangHariIni.push(...trx.barang);
+    // Reset counter dan perbarui status setelah backup berhasil
+    localStorage.setItem('conf_transactionsSinceLastBackup', '0');
+    updateBackupCardStatus();
+    alert('Backup berhasil! Status data Anda kini sudah aman.');
+}
+
+function importData(input) {
+    const file = input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        let data;
+        try { data = JSON.parse(e.target.result); } catch(err) { alert("File backup tidak valid!"); return; }
+        if(!data || typeof data !== "object"){ alert("Data backup tidak valid!"); return; }
+        if (confirm("Ini akan menimpa SEMUA data yang ada. Lanjutkan?")) {
+            localStorage.clear();
+            for (const key in data) {
+                if (Object.hasOwnProperty.call(data, key)) {
+                    localStorage.setItem(key, data[key]);
                 }
             }
-        });
-    }
-
-    if (totalTransaksiDiringkas === 0) {
-        alert("Tidak ada transaksi yang ditemukan untuk diringkas hari ini.");
-        return;
-    }
-
-    const barangKolektif = semuaBarangHariIni.filter(b => b.nama && b.qty);
-
-    if (barangKolektif.length === 0) {
-         alert("Tidak ada item barang yang valid untuk diringkas hari ini.");
-        return;
-    }
-
-    const ringkasanAdmin = {
-        nama: document.getElementById('iNama').value,
-        alamat: document.getElementById('iAlamat').value,
-        telp: document.getElementById('iTelp').value,
-        petani: 'Admin',
-        tanggal: new Date().toISOString(),
-        barang: barangKolektif
+            // Setelah restore, data dianggap aman/ter-backup
+            localStorage.setItem('conf_transactionsSinceLastBackup', '0');
+            alert("Data berhasil di-restore!");
+            window.location.reload(); // Reload akan memanggil updateBackupCardStatus() saat load
+        }
     };
+    reader.readAsText(file);
+    input.value = '';
+}
 
-    if (!db['Admin']) {
-        db['Admin'] = [];
-    }
+function saveConfig() { localStorage.setItem('conf_nama', document.getElementById('iNama').value); localStorage.setItem('conf_alamat', document.getElementById('iAlamat').value); localStorage.setItem('conf_telp', document.getElementById('iTelp').value); alert('Informasi toko berhasil disimpan!'); renderNota(); }
+document.getElementById('iNama').addEventListener('input', saveConfig); document.getElementById('iAlamat').addEventListener('input', saveConfig); document.getElementById('iTelp').addEventListener('input', saveConfig);
+
+// --- FUNGSI BARU UNTUK STATUS BACKUP ---
+function updateBackupCardStatus() {
+    const statusEl = document.getElementById('backupStatus');
+    if (!statusEl) return; // Penjaga jika elemen tidak ditemukan
+    const txCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0');
     
-    if (rekapHariIniIndex !== -1) {
-        db['Admin'].splice(rekapHariIniIndex, 1);
-    }
-
-    db['Admin'].push(ringkasanAdmin);
-    localStorage.setItem(LS_KEY, JSON.stringify(db));
-
-    alert(`Ringkasan harian berhasil dibuat/diperbarui!\nTotal ${totalTransaksiDiringkas} transaksi dengan ${barangKolektif.length} item telah dikumpulkan.`);
-
-    if (document.getElementById('rekapArea').innerHTML !== '') {
-        tampilkanRekap();
+    if (txCount === 0) {
+        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-semibold text-green-700">Data Anda sudah aman dan ter-backup.</span>`;
+        statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-green-100';
+    } else if (txCount < 5) {
+        statusEl.innerHTML = `<i class="fas fa-info-circle text-blue-500 mr-2"></i><span class="font-semibold text-blue-700">${txCount} transaksi baru belum di-backup.</span>`;
+        statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-blue-100';
+    } else {
+        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i><span class="font-semibold text-yellow-700">Perhatian: ${txCount} transaksi belum di-backup! Segera amankan data.</span>`;
+        statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-yellow-100';
     }
 }
 
-// --- Fungsi-Fungsi Backup, Restore, dan Konfigurasi ---
-function backupData() {
-  const semuaData = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    semuaData[key] = localStorage.getItem(key);
-  }
-  const now = new Date();
-  const tgl = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,'0') + "-" + String(now.getDate()).padStart(2,'0');
-  const blob = new Blob([JSON.stringify(semuaData)], {type: "application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `backup-nota58-${tgl}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-function importData(input) {
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    let data;
-    try { data = JSON.parse(e.target.result); }
-    catch(err) { alert("File backup tidak valid!"); return; }
-    if(!data || typeof data !== "object"){ alert("Data backup tidak valid!"); return; }
-    if (confirm("Ini akan menimpa SEMUA data yang ada. Lanjutkan?")) {
-      localStorage.clear();
-      for (const key in data) {
-        if (Object.hasOwnProperty.call(data, key)) { localStorage.setItem(key, data[key]); }
-      }
-      alert("Data berhasil di-restore!");
-      initForm();
-      document.getElementById('rekapArea').innerHTML = '';
-      document.getElementById('btnExportCsv').classList.add('hidden');
-    }
-  };
-  reader.readAsText(file);
-  input.value = '';
-}
-function saveConfig() {
-    localStorage.setItem('conf_nama', document.getElementById('iNama').value);
-    localStorage.setItem('conf_alamat', document.getElementById('iAlamat').value);
-    localStorage.setItem('conf_telp', document.getElementById('iTelp').value);
-    alert('Informasi toko berhasil disimpan!');
-}
-document.getElementById('iNama').addEventListener('change', saveConfig);
-document.getElementById('iAlamat').addEventListener('change', saveConfig);
-document.getElementById('iTelp').addEventListener('change', saveConfig);
-function checkAndShowBackupReminder() {
-    const lastReminderTimestamp = parseInt(localStorage.getItem('conf_lastBackupReminderTimestamp') || '0');
-    const transactionsSinceReminder = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0');
-    const twentyFourHours = 24 * 60 * 60 * 1000;
-    const timeExceeded = (Date.now() - lastReminderTimestamp) > twentyFourHours;
-    const transactionLimitReached = transactionsSinceReminder >= 3;
-    if (timeExceeded || transactionLimitReached) {
-        document.getElementById('backupReminder').classList.remove('hidden');
-    }
-}
-function performBackupFromReminder() {
-    backupData();
-    localStorage.setItem('conf_lastBackupReminderTimestamp', Date.now());
-    localStorage.setItem('conf_transactionsSinceLastBackup', '0');
-    document.getElementById('backupReminder').classList.add('hidden');
-}
-function dismissBackupReminder() {
-    localStorage.setItem('conf_lastBackupReminderTimestamp', Date.now());
-    document.getElementById('backupReminder').classList.add('hidden');
-}
 
-// --- INISIALISASI APLIKASI ---
-initForm();
-checkAndShowBackupReminder();
+document.addEventListener('DOMContentLoaded', () => {
+    initForm();
+    updateBackupCardStatus(); // Panggil status backup saat aplikasi dimuat
+});
 </script>
 
 </body>
