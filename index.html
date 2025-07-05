@@ -13,7 +13,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        /* CSS Disederhanakan untuk satu tema terang */
         :root {
             --primary: #2d6a4f;
             --secondary: #40916c;
@@ -144,7 +143,7 @@
     </div>
     <div class="grid md:grid-cols-2 gap-8 mt-8">
         <div id="pengaturan-toko" class="card rounded-xl p-6">
-            <h2 class="text-2xl font-bold flex items-center gap-3 mb-4"><i class="fas fa-store text-green-600"></i> Informasi Toko</h2>
+            <h2 class="text-2xl font-bold flex items-center gap-3 mb-4"><i class="fas fa-store text-green-600"></i> Informasi Toko & Lisensi</h2>
             <div class="space-y-4">
                  <div>
                     <label for="iNama" class="block text-sm font-medium text-gray-600 mb-1">Nama Toko</label>
@@ -159,6 +158,16 @@
                     <input id="iTelp" class="border bg-gray-50 text-gray-900 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-green-500 focus:border-green-500" autocomplete="off" inputmode="numeric">
                  </div>
                  <button type="button" onclick="saveConfig()" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><i class="fas fa-save"></i> Simpan Info</button>
+
+                <div id="licenseArea" class="pt-4 mt-4 border-t">
+                     <label for="iLicenseKey" class="block text-sm font-medium text-gray-600 mb-1">Kunci Lisensi</label>
+                     <div class="flex gap-2">
+                         <input id="iLicenseKey" class="border bg-gray-50 rounded-lg w-full p-2 focus:ring-2 focus:ring-indigo-500" placeholder="Masukkan kunci aktivasi...">
+                         <button onclick="activateLicense()" class="bg-indigo-600 text-white font-semibold px-4 rounded-lg hover:bg-indigo-700">Aktifkan</button>
+                     </div>
+                </div>
+                 <div id="licenseStatus" class="p-3 rounded-lg mt-2 text-center text-sm"></div>
+
             </div>
         </div>
         <div id="backup" class="card rounded-xl p-6">
@@ -179,8 +188,26 @@
     </div>
 </main>
 
+<div id="donationToast" class="no-print fixed bottom-5 right-5 w-80 bg-white rounded-xl shadow-2xl p-5 border transition-transform transform translate-x-[150%] duration-500 z-50">
+    <button onclick="closeToast()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl font-bold">&times;</button>
+    <div class="flex items-center gap-3">
+        <div class="bg-gradient-to-tr from-green-400 to-blue-500 text-white rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-rocket text-xl"></i>
+        </div>
+        <div>
+            <p class="font-bold text-gray-800">Dukung Developer!</p>
+            <p class="text-sm text-gray-600">Suka aplikasi ini? Donasi untuk menghilangkan pesan ini & mendukung pengembangan.</p>
+        </div>
+    </div>
+    <div class="text-xs text-gray-500 mt-4 bg-gray-50 p-2 rounded-lg">
+        <p>Hubungi <strong class="text-green-600">Mas Ansor</strong> via WA dengan menyertakan ID di bawah untuk berdonasi.</p>
+        <p class="mt-1"><strong>ID Anda:</strong> <code id="installationId" class="bg-gray-200 px-1 rounded"></code></p>
+    </div>
+</div>
+
+
 <script>
-// --- UI SCRIPT (DISEDERHANAKAN) ---
+// --- UI SCRIPT ---
 document.addEventListener('DOMContentLoaded', () => {
     const sidebarToggle = document.getElementById('sidebarToggle');
     const sidebar = document.getElementById('sidebar');
@@ -210,10 +237,10 @@ if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navi
 
 // Variabel Global
 const LS_KEY = "nota58_petani";
-let lastEnterPressTime = 0;
 let sortState = { key: 'tanggal', direction: 'desc' };
 let rekapChart = null;
 
+// --- FUNGSI-FUNGSI APLIKASI ---
 async function generateInvoiceA4() { const { jsPDF } = window.jspdf; const data = getNotaForm(); if (!data.petani) { alert("Isi nama petani dahulu!"); return; } if (!data.barang.some(b => b.nama && b.qty)) { alert("Data barang masih kosong!"); return; } const doc = new jsPDF('p', 'mm', 'a4'); const pageWidth = doc.internal.pageSize.getWidth(); const margin = 15; let y = 20; doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(data.nama, margin, y); y += 8; doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(data.alamat, margin, y); doc.text(`Telp/WA: ${data.telp}`, margin, y + 4); doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text('FAKTUR', pageWidth - margin, y, { align: 'right' }); doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(`Tanggal: ${formatTanggalNota(data.tanggal).split(' ')[0]}`, pageWidth - margin, y + 8, { align: 'right' }); y += 15; doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 10; doc.setFont('helvetica', 'bold'); doc.text('Kepada Yth:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(data.petani, margin, y + 5); y += 15; const tableHeaders = [['No.', 'Nama Barang', 'Kuantitas', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)']]; const tableBody = []; let grandTotal = 0; let counter = 1; (data.barang || []).forEach(b => { if (!b.nama) return; const qty = parseFloatSafe(b.qty); const harga = parseFloatSafe(b.harga); const total = qty * harga; grandTotal += total; tableBody.push([counter++, b.nama, (b.qty || '0').replace('.', ','), b.satuan, formatRupiah(harga), formatRupiah(total)]); }); doc.autoTable({ head: tableHeaders, body: tableBody, startY: y, theme: 'grid', styles: { fontSize: 10, cellPadding: 2 }, headStyles: { fillColor: [45, 106, 79], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [240, 240, 240] }, columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } }, margin: { left: margin, right: margin } }); y = doc.autoTable.previous.finalY; y += 15; doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text(`TOTAL TAGIHAN`, margin, y); doc.text(`Rp ${formatRupiah(grandTotal)}`, pageWidth - margin, y, { align: 'right' }); y += 30; const signatureX = pageWidth - margin - 50; doc.text('Hormat kami,', signatureX, y); y += 20; doc.setLineWidth(0.3); doc.line(signatureX, y, signatureX + 40, y); doc.text(`(${data.nama})`, signatureX, y + 5); const tglFile = new Date().toISOString().slice(0, 10); doc.save(`faktur-${data.petani.replace(/\s/g, '_')}-${tglFile}.pdf`); }
 function getPetaniList() { const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); return Object.keys(db).sort(); }
 function getBarangList() { const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const barangSet = new Set(); for (const petani in db) { if (db[petani]) { db[petani].forEach(trx => { if (trx.barang) { trx.barang.forEach(b => { if (b.nama) barangSet.add(b.nama.trim()); }); } }); } } return Array.from(barangSet).sort(); }
@@ -224,12 +251,10 @@ function padBoth(left, right, width) { let space = width - (left.length + right.
 function formatRupiah(val) { if(!val) return '0'; return Number(val).toLocaleString('id-ID'); }
 function parseFloatSafe(numStr) { if (typeof numStr !== 'string') return 0; return parseFloat(numStr.replace(/\./g, '').replace(',', '.')) || 0; }
 function getTrxTotal(trx) { return (trx.barang || []).reduce((sum, b) => sum + (parseFloatSafe(b.qty) * parseFloatSafe(b.harga)), 0); }
-
 function tambahBarang(obj={}) { const div = document.createElement('div'); div.className = "flex items-center gap-2 p-2.5 border rounded-lg bg-gray-50 barang-container"; div.innerHTML = ` <div class="flex-1 space-y-2"> <div class="autocomplete-container relative"> <i class="fas fa-tag absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i> <input class="nama border rounded-md w-full p-2 pl-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" placeholder="Nama Barang" value="${obj.nama||''}" autocomplete="off"> </div> <div class="grid grid-cols-1 sm:grid-cols-3 gap-2"> <div class="relative"> <input class="qty qty-input border rounded-md w-full p-2 pr-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" type="text" inputmode="decimal" placeholder="Qty" value="${obj.qty||''}" autocomplete="off"> <span class="satuan absolute right-2.5 top-1/2 transform -translate-y-1/2 text-xs font-medium text-gray-500">${(obj.nama && obj.nama.toLowerCase() === 'blonceng') ? 'Bj' : (obj.satuan || 'Kg')}</span> </div> <div class="col-span-1 sm:col-span-2 relative"> <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-gray-400">Rp</span> <input class="harga border rounded-md w-full p-2 pl-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" type="text" inputmode="decimal" placeholder="Harga/Satuan" value="${obj.harga||''}" autocomplete="off"> </div> </div> </div> <button type="button" onclick="this.parentNode.remove();renderNota()" title="Hapus Barang" class="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center hover:bg-red-200 transition-all flex-shrink-0"><i class="fas fa-trash-alt"></i></button> `; const inpNama = div.querySelector('.nama'); const inpQty = div.querySelector('.qty'); const inpHarga = div.querySelector('.harga'); initAutocomplete(inpNama, getBarangList); inpNama.addEventListener('input', function() { div.querySelector('.satuan').textContent = (inpNama.value.trim().toLowerCase() === "blonceng" ? "Bj" : "Kg"); renderNota(); }); function checkAndAddRow(currentInput) { const allBarangContainers = document.querySelectorAll('#isiBarang .barang-container'); const isLastRow = currentInput.closest('.barang-container') === allBarangContainers[allBarangContainers.length - 1]; const inputValue = currentInput.value.trim(); if (isLastRow && inputValue !== '') { const namaInputCurrentRow = currentInput.closest('.barang-container').querySelector('.nama'); if (namaInputCurrentRow && namaInputCurrentRow.value.trim() !== '') { tambahBarang(); setTimeout(() => { const allNamaInputs = document.querySelectorAll('#isiBarang .nama'); const lastNamaInput = allNamaInputs[allNamaInputs.length - 1]; if (lastNamaInput) { lastNamaInput.focus(); } }, 0); } } } inpHarga.addEventListener('blur', function() { checkAndAddRow(this); renderNota(); }); inpQty.addEventListener('blur', function() { checkAndAddRow(this); renderNota(); }); inpQty.addEventListener('input', function(e) { if (e.target.value.includes('..')) { const namaBarangSebelumnya = inpNama.value; const qtySebelumnya = e.target.value.replace('..', '').trim(); e.target.value = qtySebelumnya; tambahBarang({ nama: namaBarangSebelumnya, qty: qtySebelumnya }); setTimeout(() => { const allQtyInputs = document.querySelectorAll('#isiBarang .qty'); const lastQtyInput = allQtyInputs[allQtyInputs.length - 1]; if (lastQtyInput) { lastQtyInput.focus(); } }, 0); } renderNota(); }); document.getElementById('isiBarang').appendChild(div); renderNota(); }
 function renderNota() { const data = getNotaForm(); let hasil = `${data.nama}\n${data.alamat} | Wa:${data.telp}\n${(data.petani?data.petani+" | ":"")}${formatTanggalNota(data.tanggal)}\n==============================\n`; const barangMap = new Map(); const itemDetails = {}; let totalItem = 0, totalHarga = 0; (data.barang||[]).forEach(b=>{ if(!b.nama) return; if (!itemDetails[b.nama]) { itemDetails[b.nama] = []; } const qtyValue = b.qty.trim(); if (qtyValue) { itemDetails[b.nama].push(qtyValue); } let key = b.nama.toLowerCase()+"|"+b.satuan+"|"+b.harga; let qty = parseFloatSafe(b.qty); let harga = parseFloatSafe(b.harga); if(barangMap.has(key)){ let t=barangMap.get(key); t.qty+=qty; t.total+=qty*harga; } else { barangMap.set(key,{nama:b.nama,satuan:b.satuan,harga:harga,qty:qty,total:qty*harga}); } totalItem++; totalHarga+=qty*harga; }); barangMap.forEach(item=>{ let qtyStr = (item.qty%1===0) ? item.qty : item.qty.toFixed(2).replace(".",","); if(item.harga > 0){ hasil += `${item.nama}\n` + padBoth(`${qtyStr} ${item.satuan} × ${formatRupiah(item.harga)}`, formatRupiah(item.total), 32) + "\n"; } else { hasil += padBoth(item.nama, `${qtyStr} ${item.satuan}`, 32) + "\n"; } }); hasil += "==============================\n"; if(totalHarga > 0) hasil += padBoth("Total:", "Rp"+formatRupiah(totalHarga), 32) + "\n"; hasil += "\nKeterangan item:\n"; for(const itemName in itemDetails) { const quantities = itemDetails[itemName].filter(q => q && q.trim()); if (quantities.length === 0) continue; const count = quantities.length; const notaWidth = 32; let fullLine = `${itemName} (${count}) : ${quantities.join(' + ')}`; if (fullLine.length > notaWidth) { let lines = []; let currentLine = fullLine; while (currentLine.length > notaWidth) { let breakPoint = currentLine.lastIndexOf(' ', notaWidth); if (breakPoint === -1) { breakPoint = notaWidth; } lines.push(currentLine.substring(0, breakPoint)); currentLine = '  ' + currentLine.substring(breakPoint).trim(); } lines.push(currentLine); hasil += lines.join('\n') + '\n'; } else { hasil += fullLine + '\n'; } } hasil += `\nJumlah item : ${totalItem}`; document.getElementById('previewNota').textContent = hasil; }
 function getNotaForm() { return { nama: document.getElementById('iNama').value.trim(), alamat: document.getElementById('iAlamat').value.trim(), telp: document.getElementById('iTelp').value.trim(), petani: document.getElementById('iPetani').value.trim(), tanggal: document.getElementById('iTanggal').value, barang: Array.from(document.querySelectorAll('#isiBarang .barang-container')).map(div=>({ nama: div.querySelector('.nama').value.trim(), qty: div.querySelector('.qty').value.trim(), satuan: div.querySelector('.satuan').textContent.trim(), harga: div.querySelector('.harga').value.trim() })) } }
 function salinNota() { const textToCopy = document.getElementById('previewNota').textContent; const btn = document.querySelector('button[onclick="salinNota()"]'); const originalHtml = btn.innerHTML; if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(textToCopy).then(() => { if (btn) { btn.innerHTML='<i class="fas fa-check"></i> Tersalin!'; btn.classList.add('bg-green-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-green-500', 'text-white'); }, 1500); } }).catch(err => { console.error("Gagal menyalin: ", err); if (btn) { btn.innerHTML = '<i class="fas fa-times"></i> Gagal'; btn.classList.add('bg-red-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-red-500', 'text-white'); }, 2000); } }); } else { alert('Fungsi salin tidak didukung di browser ini.'); } }
-
 function simpanTransaksi() {
     const obj = getNotaForm();
     if(!obj.petani){ alert("Isi nama petani dahulu!"); return; }
@@ -241,15 +266,12 @@ function simpanTransaksi() {
     } else {
         if(!db[obj.petani]) db[obj.petani]=[];
         db[obj.petani].push(obj);
-        // Hanya increment counter untuk transaksi baru, bukan saat edit
         let trxCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0');
         localStorage.setItem('conf_transactionsSinceLastBackup', trxCount + 1);
     }
     localStorage.setItem(LS_KEY, JSON.stringify(db));
-    
-    updateBackupCardStatus(); // PERBARUI STATUS BACKUP
+    updateBackupCardStatus();
     salinNota();
-
     if (editIndex !== '') {
         alert("Transaksi berhasil diperbarui!");
         if (document.getElementById('rekapArea').innerHTML !== '') {
@@ -260,7 +282,6 @@ function simpanTransaksi() {
     }
     initForm();
 }
-
 function initForm() { document.getElementById('iNama').value = localStorage.getItem('conf_nama') || "Nama Toko Anda"; document.getElementById('iAlamat').value = localStorage.getItem('conf_alamat') || "Alamat Toko"; document.getElementById('iTelp').value = localStorage.getItem('conf_telp') || "No. WhatsApp"; document.getElementById('iPetani').value = ""; document.getElementById('iPetani').readOnly = false; document.getElementById('iTanggal').value = ""; document.getElementById('isiBarang').innerHTML = ""; document.getElementById('editIndex').value = ""; const btnSimpan = document.getElementById('btnSimpan'); btnSimpan.innerHTML = '<i class="fas fa-save"></i> Simpan Nota'; btnSimpan.style.backgroundColor = 'var(--primary)'; tambahBarang(); isiTanggalOtomatis(); document.getElementById('iPetani').focus(); renderNota(); initAutocomplete(document.getElementById('iPetani'), getPetaniList); }
 function muatUlangTransaksi(petani, trxIndex) { const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const trx = db[petani]?.[trxIndex]; if (!trx) { alert("Data transaksi tidak ditemukan!"); return; } document.getElementById('iNama').value = trx.nama; document.getElementById('iAlamat').value = trx.alamat; document.getElementById('iTelp').value = trx.telp; document.getElementById('iPetani').value = trx.petani; document.getElementById('iPetani').readOnly = true; document.getElementById('iTanggal').value = trx.tanggal; document.getElementById('editIndex').value = trxIndex; const btnSimpan = document.getElementById('btnSimpan'); btnSimpan.innerHTML = '<i class="fas fa-edit"></i> Update Nota'; btnSimpan.style.backgroundColor = 'var(--secondary)'; document.getElementById('isiBarang').innerHTML = ''; if (trx.barang && trx.barang.length > 0) trx.barang.forEach(b => tambahBarang(b)); else tambahBarang(); renderNota(); window.scrollTo({ top: 0, behavior: 'smooth' }); alert(`Mode Edit untuk transaksi tanggal ${formatTanggalNota(trx.tanggal)}.`); }
 function hapusTransaksi(petani, trxIndex) { if (!confirm(`Yakin ingin menghapus transaksi ini?`)) return; if (document.getElementById('editIndex').value === String(trxIndex) && document.getElementById('iPetani').value === petani) { initForm(); } let db = JSON.parse(localStorage.getItem(LS_KEY)); db[petani].splice(trxIndex, 1); if (db[petani].length === 0) delete db[petani]; localStorage.setItem(LS_KEY, JSON.stringify(db)); alert('Transaksi dihapus.'); showTabelRekap(petani); }
@@ -270,7 +291,6 @@ function sortTable(key) { if (sortState.key === key) { sortState.direction = sor
 window.showTabelRekap = function(petani){ const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); petani = petani || document.getElementById('pilihPetani')?.value; const btnExport = document.getElementById('btnExportCsv'); const tabelRekapArea = document.getElementById('tabelRekap'); if(!petani) { tabelRekapArea.innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Pilih seorang petani untuk melihat detail rekap.</p>"; if (btnExport) btnExport.classList.add('hidden'); return; } if (document.getElementById('pilihPetani')) document.getElementById('pilihPetani').value = petani; let trxList = db[petani] || []; const searchTerm = document.getElementById('rekapSearch')?.value.toLowerCase() || ''; const tglMulai = document.getElementById('rekapMulai')?.value || ''; const tglSelesai = document.getElementById('rekapSelesai')?.value || ''; let filteredTrx = trxList.filter(trx => { const trxDate = trx.tanggal.slice(0, 10); if (tglMulai && trxDate < tglMulai) return false; if (tglSelesai && trxDate > tglSelesai) return false; if (searchTerm && !(trx.barang || []).some(b => b.nama.toLowerCase().includes(searchTerm))) return false; return true; }); filteredTrx.sort((a, b) => { const dir = sortState.direction === 'asc' ? 1 : -1; switch (sortState.key) { case 'tanggal': return (new Date(a.tanggal) - new Date(b.tanggal)) * dir; case 'total': return (getTrxTotal(a) - getTrxTotal(b)) * dir; default: return 0; } }); if(!filteredTrx.length) { tabelRekapArea.innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Tidak ada data transaksi yang cocok dengan filter.</p>"; btnExport.classList.add('hidden'); return; } btnExport.classList.remove('hidden'); const sortIndicator = (key) => { if (sortState.key === key) return sortState.direction === 'asc' ? ' <i class="fas fa-arrow-up text-xs"></i>' : ' <i class="fas fa-arrow-down text-xs"></i>'; return ''; }; let out = `<div class="overflow-x-auto card rounded-lg"><table class="w-full text-sm text-left"><thead class="text-xs uppercase bg-gray-100 text-gray-600"><tr><th class="px-4 py-3 align-top sortable" onclick="sortTable('tanggal')">Tanggal${sortIndicator('tanggal')}</th><th class="px-4 py-3">Item</th><th class="px-4 py-3 text-right align-top sortable" onclick="sortTable('total')">Total${sortIndicator('total')}</th><th class="px-4 py-3 text-center align-top">Aksi</th></tr></thead><tbody>`; let grandTotal = 0; filteredTrx.forEach((trx)=>{ const originalIndex = trxList.findIndex(originalTrx => originalTrx.tanggal === trx.tanggal && JSON.stringify(originalTrx.barang) === JSON.stringify(trx.barang) ); let totalPerTrx = getTrxTotal(trx); let itemSummary = (trx.barang||[]).filter(b => b.nama && b.qty).map(b => { let classes = "inline-block bg-gray-200 text-gray-800 text-xs font-semibold mr-1 mb-1 px-2.5 py-1 rounded-full"; if(searchTerm && b.nama.toLowerCase().includes(searchTerm)) classes += " bg-yellow-200"; return `<span class="${classes}">${b.nama} (${b.qty} ${b.satuan})</span>`; }).join(' '); out+=`<tr class="border-b"><td class="px-4 py-3 align-top whitespace-nowrap">${formatTanggalNota(trx.tanggal||"")}</td><td class="px-4 py-3">${itemSummary || '<i>-</i>'}</td><td class="px-4 py-3 text-right align-top whitespace-nowrap">Rp ${formatRupiah(totalPerTrx)}</td><td class="px-4 py-3 text-center align-top whitespace-nowrap"><button class="font-medium text-blue-600 hover:underline" onclick="muatUlangTransaksi('${petani}', ${originalIndex})">Edit</button><button class="font-medium text-red-600 hover:underline ml-3" onclick="hapusTransaksi('${petani}', ${originalIndex})">Hapus</button></td></tr>`; grandTotal += totalPerTrx; }); out+=`<tr class="bg-gray-100 font-bold"><td colspan="2" class="px-4 py-3 text-right uppercase">GRAND TOTAL</td><td class="px-4 py-3 text-right whitespace-nowrap">Rp ${formatRupiah(grandTotal)}</td><td></td></tr></tbody></table></div>`; tabelRekapArea.innerHTML=out; }
 function exportToCSV() { const petani = document.getElementById('pilihPetani').value; if (!petani) { alert("Pilih petani terlebih dahulu!"); return; } const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const trxList = db[petani] || []; let grandTotal = 0; let csvContent = `Nama Toko:,"${document.getElementById('iNama').value}"\nAlamat:,"${document.getElementById('iAlamat').value}"\nNo. WA:,"${document.getElementById('iTelp').value}"\n\nNo. Trx,Nama Petani,Tanggal,Jam,Barang,Qty,Satuan,Harga,Subtotal\n`; trxList.forEach((trx, i) => { (trx.barang || []).forEach(b => { const qty = parseFloatSafe(b.qty); const harga = parseFloatSafe(b.harga); const subtotal = qty * harga; grandTotal += subtotal; const line = [ i + 1, `"${petani}"`, formatTanggalNota(trx.tanggal || "").split(" ")[0] || '', formatTanggalNota(trx.tanggal || "").split(" ")[1] || '', `"${(b.nama || '').replace(/"/g, '""')}"`, (b.qty || '0').replace('.',','), b.satuan || '', harga, subtotal ].join(','); csvContent += line + "\n"; }); }); csvContent += `\n,,,,,,,GRAND TOTAL,${grandTotal}\n`; const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", `rekap_${petani}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
 function buatRingkasanAdmin() { const hariIni = new Date().toISOString().slice(0, 10); const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); let rekapHariIniIndex = -1; if (db['Admin']) rekapHariIniIndex = db['Admin'].findIndex(trx => trx.tanggal && trx.tanggal.slice(0, 10) === hariIni); if (rekapHariIniIndex !== -1) if (!confirm("Ringkasan untuk hari ini sudah ada. Hapus dan buat ulang?")) return; const semuaBarangHariIni = []; let totalTransaksiDiringkas = 0; for (const petani in db) { if (petani === 'Admin') continue; db[petani].forEach(trx => { if (trx.tanggal && trx.tanggal.slice(0, 10) === hariIni) { totalTransaksiDiringkas++; if (trx.barang && trx.barang.length > 0) semuaBarangHariIni.push(...trx.barang); } }); } if (totalTransaksiDiringkas === 0) { alert("Tidak ada transaksi untuk diringkas hari ini."); return; } const barangKolektif = semuaBarangHariIni.filter(b => b.nama && b.qty); if (barangKolektif.length === 0) { alert("Tidak ada item barang valid untuk diringkas."); return; } const ringkasanAdmin = { nama: document.getElementById('iNama').value, alamat: document.getElementById('iAlamat').value, telp: document.getElementById('iTelp').value, petani: 'Admin', tanggal: new Date().toISOString(), barang: barangKolektif }; if (!db['Admin']) db['Admin'] = []; if (rekapHariIniIndex !== -1) db['Admin'].splice(rekapHariIniIndex, 1); db['Admin'].push(ringkasanAdmin); localStorage.setItem(LS_KEY, JSON.stringify(db)); alert(`Ringkasan harian dibuat!\nTotal ${totalTransaksiDiringkas} transaksi dengan ${barangKolektif.length} item dikumpulkan.`); if (document.getElementById('rekapArea').innerHTML !== '') tampilkanRekap(); }
-
 function backupData() {
     const semuaData = {};
     for (let i = 0; i < localStorage.length; i++) {
@@ -285,13 +305,10 @@ function backupData() {
     a.download = `backup-nota-rekap-${tgl}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
-
-    // Reset counter dan perbarui status setelah backup berhasil
     localStorage.setItem('conf_transactionsSinceLastBackup', '0');
     updateBackupCardStatus();
     alert('Backup berhasil! Status data Anda kini sudah aman.');
 }
-
 function importData(input) {
     const file = input.files[0];
     if(!file) return;
@@ -307,25 +324,20 @@ function importData(input) {
                     localStorage.setItem(key, data[key]);
                 }
             }
-            // Setelah restore, data dianggap aman/ter-backup
             localStorage.setItem('conf_transactionsSinceLastBackup', '0');
             alert("Data berhasil di-restore!");
-            window.location.reload(); // Reload akan memanggil updateBackupCardStatus() saat load
+            window.location.reload();
         }
     };
     reader.readAsText(file);
     input.value = '';
 }
-
 function saveConfig() { localStorage.setItem('conf_nama', document.getElementById('iNama').value); localStorage.setItem('conf_alamat', document.getElementById('iAlamat').value); localStorage.setItem('conf_telp', document.getElementById('iTelp').value); alert('Informasi toko berhasil disimpan!'); renderNota(); }
-document.getElementById('iNama').addEventListener('input', saveConfig); document.getElementById('iAlamat').addEventListener('input', saveConfig); document.getElementById('iTelp').addEventListener('input', saveConfig);
-
-// --- FUNGSI BARU UNTUK STATUS BACKUP ---
+document.getElementById('iNama').addEventListener('input', renderNota); document.getElementById('iAlamat').addEventListener('input', renderNota); document.getElementById('iTelp').addEventListener('input', renderNota);
 function updateBackupCardStatus() {
     const statusEl = document.getElementById('backupStatus');
-    if (!statusEl) return; // Penjaga jika elemen tidak ditemukan
+    if (!statusEl) return;
     const txCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0');
-    
     if (txCount === 0) {
         statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-semibold text-green-700">Data Anda sudah aman dan ter-backup.</span>`;
         statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-green-100';
@@ -338,12 +350,156 @@ function updateBackupCardStatus() {
     }
 }
 
+// --- LICENSE & DONATION SCRIPT (VERSI BARU DENGAN MASA BERLAKU) ---
+const PERMANENT_PREFIX = "NOTA58-";
+const EXPIRING_PREFIX = "NOTA58-EXP-";
+const LS_INSTALL_ID = "conf_installId";
+const LS_LICENSE_KEY = "conf_licenseKey";
+const LS_LICENSE_STATUS = "conf_licenseStatus";
+const LS_LICENSE_EXPIRY = "conf_licenseExpiry";
 
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+function validateLicenseKey(installId, licenseKey) {
+    const expectedIdPart = installId.substring(0, 8).split('').reverse().join('');
+
+    if (licenseKey.startsWith(EXPIRING_PREFIX)) {
+        const encodedPayload = licenseKey.replace(EXPIRING_PREFIX, '');
+        try {
+            const payload = atob(encodedPayload);
+            const [keyIdPart, expiryString] = payload.split('|');
+            
+            if (keyIdPart !== expectedIdPart) return { isValid: false };
+
+            const expiryDate = new Date(expiryString + 'T23:59:59');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (expiryDate >= today) {
+                return { isValid: true, expires: expiryString };
+            } else {
+                return { isValid: false, isExpired: true, expires: expiryString };
+            }
+        } catch (e) {
+            return { isValid: false };
+        }
+    }
+
+    if (licenseKey.startsWith(PERMANENT_PREFIX)) {
+        const keyIdPart = licenseKey.replace(PERMANENT_PREFIX, '');
+        if (keyIdPart === expectedIdPart) {
+            return { isValid: true, expires: 'permanent' };
+        }
+    }
+
+    return { isValid: false };
+}
+
+function activateLicense() {
+    const installId = localStorage.getItem(LS_INSTALL_ID);
+    const licenseKey = document.getElementById('iLicenseKey').value.trim();
+    const statusEl = document.getElementById('licenseStatus');
+    if (!licenseKey) return;
+
+    const validationResult = validateLicenseKey(installId, licenseKey);
+
+    if (validationResult.isValid) {
+        localStorage.setItem(LS_LICENSE_KEY, licenseKey);
+        localStorage.setItem(LS_LICENSE_STATUS, "VALID");
+        localStorage.setItem(LS_LICENSE_EXPIRY, validationResult.expires);
+        
+        let successMsg = '';
+        if (validationResult.expires === 'permanent') {
+            successMsg = 'Lisensi permanen berhasil diaktifkan. Terima kasih!';
+        } else {
+            const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+            successMsg = `Lisensi aktif hingga ${tgl}. Terima kasih!`;
+        }
+        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> ${successMsg}`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-green-100 text-green-800';
+        document.getElementById('licenseArea').style.display = 'none';
+        closeToast();
+
+    } else if (validationResult.isExpired) {
+        const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi telah kedaluwarsa pada ${tgl}.`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800';
+    } else {
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi tidak valid.`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800';
+    }
+}
+
+function showDonationToast() {
+    const toast = document.getElementById('donationToast');
+    if (toast) {
+        toast.classList.remove('translate-x-[150%]');
+        toast.classList.add('translate-x-0');
+    }
+}
+
+function closeToast() {
+    const toast = document.getElementById('donationToast');
+    if (toast) {
+        toast.classList.remove('translate-x-0');
+        toast.classList.add('translate-x-[150%]');
+    }
+}
+
+function initLicenseSystem() {
+    let installId = localStorage.getItem(LS_INSTALL_ID);
+    if (!installId) {
+        installId = generateUUID();
+        localStorage.setItem(LS_INSTALL_ID, installId);
+    }
+    document.getElementById('installationId').textContent = installId;
+
+    const licenseKey = localStorage.getItem(LS_LICENSE_KEY);
+    if (!licenseKey) {
+        setTimeout(showDonationToast, 5000);
+        return;
+    }
+
+    const validationResult = validateLicenseKey(installId, licenseKey);
+    const licenseArea = document.getElementById('licenseArea');
+    const statusEl = document.getElementById('licenseStatus');
+
+    if (validationResult.isValid) {
+        licenseArea.style.display = 'none';
+        let statusMsg = '';
+        if (validationResult.expires === 'permanent') {
+            statusMsg = '<i class="fas fa-star text-yellow-500"></i> Status: <span class="font-bold">Premium (Permanen)</span>';
+        } else {
+             const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+             statusMsg = `<i class="fas fa-check-circle text-green-500"></i> Status: <span class="font-bold">Premium</span> (Aktif s/d ${tgl})`;
+        }
+        statusEl.innerHTML = statusMsg;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-blue-100 text-blue-800';
+    } else {
+        localStorage.setItem(LS_LICENSE_STATUS, "EXPIRED");
+        let expiredMsg = 'Lisensi Anda tidak valid.';
+        if(validationResult.isExpired) {
+            const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+            expiredMsg = `Lisensi Anda telah kedaluwarsa pada ${tgl}. Silakan perbarui.`;
+        }
+        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-600"></i> ${expiredMsg}`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-yellow-100 text-yellow-800';
+        setTimeout(showDonationToast, 3000);
+    }
+}
+
+// --- ON LOAD INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     initForm();
-    updateBackupCardStatus(); // Panggil status backup saat aplikasi dimuat
+    updateBackupCardStatus();
+    initLicenseSystem();
 });
 </script>
 
 </body>
-</html>
+                        </html>
