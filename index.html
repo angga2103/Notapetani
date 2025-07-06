@@ -215,6 +215,18 @@
     <p id="toastMessage" class="font-semibold"></p>
 </div>
 
+<div id="confirmModal" class="no-print fixed inset-0 z-[60] hidden items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-11/12 max-w-md transform transition-transform duration-300 scale-95">
+        <h3 class="text-lg font-bold text-gray-900 mb-2">Konfirmasi</h3>
+        <p id="confirmMessage" class="text-base text-gray-700 mb-6"></p>
+        <div class="flex justify-end gap-3">
+            <button id="confirmCancel" class="px-5 py-2 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 transition-colors">Batal</button>
+            <button id="confirmOk" class="px-5 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors">Oke</button>
+        </div>
+    </div>
+</div>
+
+
 <script>
 // --- UI SCRIPT ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -249,37 +261,69 @@ const LS_KEY = "nota58_petani";
 let sortState = { key: 'tanggal', direction: 'desc' };
 let rekapChart = null;
 
-// --- FUNGSI NOTIFIKASI TOAST KUSTOM ---
+// --- FUNGSI NOTIFIKASI & MODAL KUSTOM ---
 function showToast(message, type = 'success') {
     const toast = document.getElementById('customToast');
     const toastIcon = document.getElementById('toastIcon');
     const toastMessage = document.getElementById('toastMessage');
 
-    // Hapus class warna dan ikon sebelumnya
     toast.classList.remove('bg-green-600', 'bg-red-600', 'bg-blue-600');
     toastIcon.classList.remove('fa-check-circle', 'fa-times-circle', 'fa-info-circle');
 
-    // Atur warna dan ikon berdasarkan tipe notifikasi
     if (type === 'success') {
         toast.classList.add('bg-green-600');
         toastIcon.classList.add('fa-check-circle');
     } else if (type === 'error') {
         toast.classList.add('bg-red-600');
         toastIcon.classList.add('fa-times-circle');
-    } else { // default ke 'info'
+    } else {
         toast.classList.add('bg-blue-600');
         toastIcon.classList.add('fa-info-circle');
     }
 
-    // Atur pesan dan tampilkan toast
     toastMessage.textContent = message;
     toast.classList.add('show');
 
-    // Sembunyikan otomatis setelah 3 detik
     setTimeout(() => {
         toast.classList.remove('show');
     }, 3000);
 }
+
+function showConfirm(message) {
+    return new Promise((resolve, reject) => {
+        const modal = document.getElementById('confirmModal');
+        const msgEl = document.getElementById('confirmMessage');
+        const okBtn = document.getElementById('confirmOk');
+        const cancelBtn = document.getElementById('confirmCancel');
+        const modalPanel = modal.querySelector('div');
+
+        msgEl.textContent = message;
+        modal.classList.remove('hidden');
+
+        // Trigger fade-in and scale-up animation
+        setTimeout(() => {
+            modal.style.opacity = '1';
+            modalPanel.style.transform = 'scale(1)';
+        }, 10);
+        
+        const close = (decision) => {
+            modal.style.opacity = '0';
+            modalPanel.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                // Clean up listeners by cloning nodes
+                okBtn.replaceWith(okBtn.cloneNode(true));
+                cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+                if (decision) resolve(true);
+                else reject(false);
+            }, 300); // Wait for animation to finish
+        };
+
+        okBtn.onclick = () => close(true);
+        cancelBtn.onclick = () => close(false);
+    });
+}
+
 
 // --- FUNGSI-FUNGSI APLIKASI ---
 async function generateInvoiceA4() { const { jsPDF } = window.jspdf; const data = getNotaForm(); if (!data.petani) { showToast("Isi nama petani dahulu!", "error"); return; } if (!data.barang.some(b => b.nama && b.qty)) { showToast("Data barang masih kosong!", "error"); return; } const doc = new jsPDF('p', 'mm', 'a4'); const pageWidth = doc.internal.pageSize.getWidth(); const margin = 15; let y = 20; doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(data.nama, margin, y); y += 8; doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(data.alamat, margin, y); doc.text(`Telp/WA: ${data.telp}`, margin, y + 4); doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text('FAKTUR', pageWidth - margin, y, { align: 'right' }); doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(`Tanggal: ${formatTanggalNota(data.tanggal).split(' ')[0]}`, pageWidth - margin, y + 8, { align: 'right' }); y += 15; doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 10; doc.setFont('helvetica', 'bold'); doc.text('Kepada Yth:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(data.petani, margin, y + 5); y += 15; const tableHeaders = [['No.', 'Nama Barang', 'Kuantitas', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)']]; const tableBody = []; let grandTotal = 0; let counter = 1; (data.barang || []).forEach(b => { if (!b.nama) return; const qty = parseFloatSafe(b.qty); const harga = parseFloatSafe(b.harga); const total = qty * harga; grandTotal += total; tableBody.push([counter++, b.nama, (b.qty || '0').replace('.', ','), b.satuan, formatRupiah(harga), formatRupiah(total)]); }); doc.autoTable({ head: tableHeaders, body: tableBody, startY: y, theme: 'grid', styles: { fontSize: 10, cellPadding: 2 }, headStyles: { fillColor: [45, 106, 79], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [240, 240, 240] }, columnStyles: { 0: { halign: 'center', cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } }, margin: { left: margin, right: margin } }); y = doc.autoTable.previous.finalY; y += 15; doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text(`TOTAL TAGIHAN`, margin, y); doc.text(`Rp ${formatRupiah(grandTotal)}`, pageWidth - margin, y, { align: 'right' }); y += 30; const signatureX = pageWidth - margin - 50; doc.text('Hormat kami,', signatureX, y); y += 20; doc.setLineWidth(0.3); doc.line(signatureX, y, signatureX + 40, y); doc.text(`(${data.nama})`, signatureX, y + 5); const tglFile = new Date().toISOString().slice(0, 10); doc.save(`faktur-${data.petani.replace(/\s/g, '_')}-${tglFile}.pdf`); }
@@ -295,49 +339,17 @@ function getTrxTotal(trx) { return (trx.barang || []).reduce((sum, b) => sum + (
 function tambahBarang(obj={}) { const div = document.createElement('div'); div.className = "flex items-center gap-2 p-2.5 border rounded-lg bg-gray-50 barang-container"; div.innerHTML = ` <div class="flex-1 space-y-2"> <div class="autocomplete-container relative"> <i class="fas fa-tag absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i> <input class="nama border rounded-md w-full p-2 pl-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" placeholder="Nama Barang" value="${obj.nama||''}" autocomplete="off"> </div> <div class="grid grid-cols-1 sm:grid-cols-3 gap-2"> <div class="relative"> <input class="qty qty-input border rounded-md w-full p-2 pr-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" type="text" inputmode="decimal" placeholder="Qty" value="${obj.qty||''}" autocomplete="off"> <span class="satuan absolute right-2.5 top-1/2 transform -translate-y-1/2 text-xs font-medium text-gray-500">${(obj.nama && obj.nama.toLowerCase() === 'blonceng') ? 'Bj' : (obj.satuan || 'Kg')}</span> </div> <div class="col-span-1 sm:col-span-2 relative"> <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm font-medium text-gray-400">Rp</span> <input class="harga border rounded-md w-full p-2 pl-8 text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500 bg-gray-100 text-gray-900 placeholder-gray-400" type="text" inputmode="decimal" placeholder="Harga/Satuan" value="${obj.harga||''}" autocomplete="off"> </div> </div> </div> <button type="button" onclick="this.parentNode.remove();renderNota()" title="Hapus Barang" class="bg-red-100 text-red-700 rounded-lg w-10 h-10 flex items-center justify-center hover:bg-red-200 transition-all flex-shrink-0"><i class="fas fa-trash-alt"></i></button> `; const inpNama = div.querySelector('.nama'); const inpQty = div.querySelector('.qty'); const inpHarga = div.querySelector('.harga'); initAutocomplete(inpNama, getBarangList); inpNama.addEventListener('input', function() { div.querySelector('.satuan').textContent = (inpNama.value.trim().toLowerCase() === "blonceng" ? "Bj" : "Kg"); renderNota(); }); function checkAndAddRow(currentInput) { const allBarangContainers = document.querySelectorAll('#isiBarang .barang-container'); const isLastRow = currentInput.closest('.barang-container') === allBarangContainers[allBarangContainers.length - 1]; const inputValue = currentInput.value.trim(); if (isLastRow && inputValue !== '') { const namaInputCurrentRow = currentInput.closest('.barang-container').querySelector('.nama'); if (namaInputCurrentRow && namaInputCurrentRow.value.trim() !== '') { tambahBarang(); setTimeout(() => { const allNamaInputs = document.querySelectorAll('#isiBarang .nama'); const lastNamaInput = allNamaInputs[allNamaInputs.length - 1]; if (lastNamaInput) { lastNamaInput.focus(); } }, 0); } } } inpHarga.addEventListener('blur', function() { checkAndAddRow(this); renderNota(); }); inpQty.addEventListener('blur', function() { checkAndAddRow(this); renderNota(); }); inpQty.addEventListener('input', function(e) { if (e.target.value.includes('..')) { const namaBarangSebelumnya = inpNama.value; const qtySebelumnya = e.target.value.replace('..', '').trim(); e.target.value = qtySebelumnya; tambahBarang({ nama: namaBarangSebelumnya, qty: qtySebelumnya }); setTimeout(() => { const allQtyInputs = document.querySelectorAll('#isiBarang .qty'); const lastQtyInput = allQtyInputs[allQtyInputs.length - 1]; if (lastQtyInput) { lastQtyInput.focus(); } }, 0); } renderNota(); }); document.getElementById('isiBarang').appendChild(div); renderNota(); }
 function renderNota() { const data = getNotaForm(); let hasil = `${data.nama}\n${data.alamat} | Wa:${data.telp}\n${(data.petani?data.petani+" | ":"")}${formatTanggalNota(data.tanggal)}\n==============================\n`; const barangMap = new Map(); const itemDetails = {}; let totalItem = 0, totalHarga = 0; (data.barang||[]).forEach(b=>{ if(!b.nama) return; if (!itemDetails[b.nama]) { itemDetails[b.nama] = []; } const qtyValue = b.qty.trim(); if (qtyValue) { itemDetails[b.nama].push(qtyValue); } let key = b.nama.toLowerCase()+"|"+b.satuan+"|"+b.harga; let qty = parseFloatSafe(b.qty); let harga = parseFloatSafe(b.harga); if(barangMap.has(key)){ let t=barangMap.get(key); t.qty+=qty; t.total+=qty*harga; } else { barangMap.set(key,{nama:b.nama,satuan:b.satuan,harga:harga,qty:qty,total:qty*harga}); } totalItem++; totalHarga+=qty*harga; }); barangMap.forEach(item=>{ let qtyStr = (item.qty%1===0) ? item.qty : item.qty.toFixed(2).replace(".",","); if(item.harga > 0){ hasil += `${item.nama}\n` + padBoth(`${qtyStr} ${item.satuan} × ${formatRupiah(item.harga)}`, formatRupiah(item.total), 32) + "\n"; } else { hasil += padBoth(item.nama, `${qtyStr} ${item.satuan}`, 32) + "\n"; } }); hasil += "==============================\n"; if(totalHarga > 0) hasil += padBoth("Total:", "Rp"+formatRupiah(totalHarga), 32) + "\n"; hasil += "\nKeterangan item:\n"; for(const itemName in itemDetails) { const quantities = itemDetails[itemName].filter(q => q && q.trim()); if (quantities.length === 0) continue; const count = quantities.length; const notaWidth = 32; let fullLine = `${itemName} (${count}) : ${quantities.join(' + ')}`; if (fullLine.length > notaWidth) { let lines = []; let currentLine = fullLine; while (currentLine.length > notaWidth) { let breakPoint = currentLine.lastIndexOf(' ', notaWidth); if (breakPoint === -1) { breakPoint = notaWidth; } lines.push(currentLine.substring(0, breakPoint)); currentLine = '  ' + currentLine.substring(breakPoint).trim(); } lines.push(currentLine); hasil += lines.join('\n') + '\n'; } else { hasil += fullLine + '\n'; } } hasil += `\nJumlah item : ${totalItem}`; document.getElementById('previewNota').textContent = hasil; }
 function getNotaForm() { return { nama: document.getElementById('iNama').value.trim(), alamat: document.getElementById('iAlamat').value.trim(), telp: document.getElementById('iTelp').value.trim(), petani: document.getElementById('iPetani').value.trim(), tanggal: document.getElementById('iTanggal').value, barang: Array.from(document.querySelectorAll('#isiBarang .barang-container')).map(div=>({ nama: div.querySelector('.nama').value.trim(), qty: div.querySelector('.qty').value.trim(), satuan: div.querySelector('.satuan').textContent.trim(), harga: div.querySelector('.harga').value.trim() })) } }
-function salinNota() { const textToCopy = document.getElementById('previewNota').textContent; const btn = document.querySelector('button[onclick="salinNota()"]'); const originalHtml = btn.innerHTML; if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(textToCopy).then(() => { if (btn) { btn.innerHTML='<i class="fas fa-check"></i> Tersalin!'; btn.classList.add('bg-green-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-green-500', 'text-white'); }, 1500); } }).catch(err => { console.error("Gagal menyalin: ", err); if (btn) { btn.innerHTML = '<i class="fas fa-times"></i> Gagal'; btn.classList.add('bg-red-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-red-500', 'text-white'); }, 2000); } }); } else { showToast('Fungsi salin tidak didukung browser ini.', 'error'); } }
-function simpanTransaksi() {
-    const obj = getNotaForm();
-    if(!obj.petani){
-        showToast("Isi nama petani dahulu!", 'error');
-        return;
-    }
-    if(!obj.barang.some(b => b.nama && b.qty)){
-        showToast("Data barang masih kosong!", 'error');
-        return;
-    }
-    let db = JSON.parse(localStorage.getItem(LS_KEY)||"{}");
-    const editIndex = document.getElementById('editIndex').value;
-    if (editIndex !== '') {
-        db[obj.petani][parseInt(editIndex)] = obj;
-    } else {
-        if(!db[obj.petani]) db[obj.petani]=[];
-        db[obj.petani].push(obj);
-        let trxCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0');
-        localStorage.setItem('conf_transactionsSinceLastBackup', trxCount + 1);
-    }
-    localStorage.setItem(LS_KEY, JSON.stringify(db));
-    updateBackupCardStatus();
-    salinNota();
-    if (editIndex !== '') {
-        showToast("Transaksi berhasil diperbarui!", 'info');
-        if (document.getElementById('rekapArea').innerHTML !== '') {
-            showTabelRekap(obj.petani);
-        }
-    } else {
-        showToast("Transaksi berhasil disimpan!");
-    }
-    initForm();
-}
+function salinNota() { const textToCopy = document.getElementById('previewNota').textContent; const btn = document.querySelector('button[onclick="salinNota()"]'); const originalHtml = btn.innerHTML; if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(textToCopy).then(() => { if (btn) { btn.innerHTML='<i class="fas fa-check"></i> Tersalin!'; btn.classList.add('bg-green-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-green-500', 'text-white'); }, 1500); } }).catch(err => { console.error("Gagal menyalin: ", err); if (btn) { btn.innerHTML = '<i class="fas fa-times"></i> Gagal'; btn.classList.add('bg-red-500', 'text-white'); setTimeout(()=> { btn.innerHTML = originalHtml; btn.classList.remove('bg-red-500', 'text-white'); }, 2000); } }); } else { showToast('Fungsi salin tidak didukung di browser ini.', 'error'); } }
+function simpanTransaksi() { const obj = getNotaForm(); if(!obj.petani){ showToast("Isi nama petani dahulu!", 'error'); return; } if(!obj.barang.some(b => b.nama && b.qty)){ showToast("Data barang masih kosong!", 'error'); return; } let db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); const editIndex = document.getElementById('editIndex').value; if (editIndex !== '') { db[obj.petani][parseInt(editIndex)] = obj; } else { if(!db[obj.petani]) db[obj.petani]=[]; db[obj.petani].push(obj); let trxCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0'); localStorage.setItem('conf_transactionsSinceLastBackup', trxCount + 1); } localStorage.setItem(LS_KEY, JSON.stringify(db)); updateBackupCardStatus(); salinNota(); if (editIndex !== '') { showToast("Transaksi berhasil diperbarui!", 'info'); if (document.getElementById('rekapArea').innerHTML !== '') { showTabelRekap(obj.petani); } } else { showToast("Transaksi berhasil disimpan!"); } initForm(); }
 function initForm() { document.getElementById('iNama').value = localStorage.getItem('conf_nama') || "Nama Toko Anda"; document.getElementById('iAlamat').value = localStorage.getItem('conf_alamat') || "Alamat Toko"; document.getElementById('iTelp').value = localStorage.getItem('conf_telp') || "No. WhatsApp"; document.getElementById('iPetani').value = ""; document.getElementById('iPetani').readOnly = false; document.getElementById('iTanggal').value = ""; document.getElementById('isiBarang').innerHTML = ""; document.getElementById('editIndex').value = ""; const btnSimpan = document.getElementById('btnSimpan'); btnSimpan.innerHTML = '<i class="fas fa-save"></i> Simpan Nota'; btnSimpan.style.backgroundColor = 'var(--primary)'; tambahBarang(); isiTanggalOtomatis(); document.getElementById('iPetani').focus(); renderNota(); initAutocomplete(document.getElementById('iPetani'), getPetaniList); }
 function muatUlangTransaksi(petani, trxIndex) { const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const trx = db[petani]?.[trxIndex]; if (!trx) { showToast("Data transaksi tidak ditemukan!", "error"); return; } document.getElementById('iNama').value = trx.nama; document.getElementById('iAlamat').value = trx.alamat; document.getElementById('iTelp').value = trx.telp; document.getElementById('iPetani').value = trx.petani; document.getElementById('iPetani').readOnly = true; document.getElementById('iTanggal').value = trx.tanggal; document.getElementById('editIndex').value = trxIndex; const btnSimpan = document.getElementById('btnSimpan'); btnSimpan.innerHTML = '<i class="fas fa-edit"></i> Update Nota'; btnSimpan.style.backgroundColor = 'var(--secondary)'; document.getElementById('isiBarang').innerHTML = ''; if (trx.barang && trx.barang.length > 0) trx.barang.forEach(b => tambahBarang(b)); else tambahBarang(); renderNota(); window.scrollTo({ top: 0, behavior: 'smooth' }); showToast(`Mode Edit untuk trx tgl ${formatTanggalNota(trx.tanggal)}.`, 'info'); }
-function hapusTransaksi(petani, trxIndex) { if (!confirm(`Yakin ingin menghapus transaksi ini?`)) return; if (document.getElementById('editIndex').value === String(trxIndex) && document.getElementById('iPetani').value === petani) { initForm(); } let db = JSON.parse(localStorage.getItem(LS_KEY)); db[petani].splice(trxIndex, 1); if (db[petani].length === 0) delete db[petani]; localStorage.setItem(LS_KEY, JSON.stringify(db)); showToast('Transaksi dihapus.', 'info'); showTabelRekap(petani); }
+async function hapusTransaksi(petani, trxIndex) { try { await showConfirm('Yakin ingin menghapus transaksi ini?'); if (document.getElementById('editIndex').value === String(trxIndex) && document.getElementById('iPetani').value === petani) { initForm(); } let db = JSON.parse(localStorage.getItem(LS_KEY)); db[petani].splice(trxIndex, 1); if (db[petani].length === 0) delete db[petani]; localStorage.setItem(LS_KEY, JSON.stringify(db)); showToast('Transaksi berhasil dihapus.', 'info'); showTabelRekap(petani); } catch (e) { console.log('Penghapusan dibatalkan oleh pengguna.'); } }
 function tampilkanRekap() { const rekapArea = document.getElementById('rekapArea'); if (rekapArea.innerHTML !== '') { rekapArea.innerHTML = ''; document.getElementById('btnExportCsv').classList.add('hidden'); if(rekapChart) { rekapChart.destroy(); rekapChart = null; } return; } let html = `<div id="dashboardArea" class="mb-4 p-4 card rounded-lg"><h3 class="text-xl font-semibold border-b pb-2 mb-3">Dashboard Umum</h3><div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-center"><div class="bg-blue-100 p-3 rounded-lg"><div class="text-xs text-blue-800 uppercase font-semibold">Total Omzet</div><div id="statTotalOmzet" class="text-lg md:text-xl font-bold text-blue-900">Rp 0</div></div><div class="bg-green-100 p-3 rounded-lg"><div class="text-xs text-green-800 uppercase font-semibold">Trx Hari Ini</div><div id="statTrxHariIni" class="text-lg md:text-xl font-bold text-green-900">0</div></div><div class="bg-yellow-100 p-3 rounded-lg col-span-2 md:col-span-1"><div class="text-xs text-yellow-800 uppercase font-semibold">Petani Terbaik</div><div id="statPetaniTerbaik" class="text-lg md:text-xl font-bold text-yellow-900">-</div></div></div><div class="mt-4"><canvas id="chart7Hari"></canvas></div></div><h3 class="text-xl font-semibold border-b pb-2 mt-6">Detail Rekap per Petani</h3><div class="space-y-3 p-4 card rounded-lg bg-gray-50 mt-3"><select id="pilihPetani" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900" onchange="showTabelRekap(this.value)"><option value="">-- Pilih Petani --</option>`; const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); Object.keys(db).sort().forEach(p=>{ html+=`<option value="${p}">${p}</option>`; }); html+=`</select><input type="search" id="rekapSearch" oninput="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900 placeholder-gray-400" placeholder="🔍 Cari nama barang..."><div class="flex flex-col sm:flex-row gap-2 items-center text-sm"><label for="rekapMulai" class="text-gray-600">Dari:</label><input type="date" id="rekapMulai" onchange="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900"><label for="rekapSelesai" class="text-gray-600">Sampai:</label><input type="date" id="rekapSelesai" onchange="showTabelRekap()" class="border-gray-300 rounded-lg shadow-sm w-full p-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white text-gray-900"></div></div><div id="tabelRekap" class="mt-4"></div>`; rekapArea.innerHTML = html; renderDashboard(); showTabelRekap(); }
 function renderDashboard() { const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); let totalOmzet = 0, trxHariIni = 0; const today = new Date().toISOString().slice(0, 10); const currentMonth = new Date().toISOString().slice(0, 7); let omzetPerPetaniBulanIni = {}; const dateMap = new Map(); for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); dateMap.set(d.toISOString().slice(0, 10), 0); } const labels = Array.from(dateMap.keys()).map(d => `${d.slice(8,10)}/${d.slice(5,7)}`); for (const petani in db) { if (petani === 'Admin') continue; db[petani].forEach(trx => { const trxTotal = getTrxTotal(trx); totalOmzet += trxTotal; if (trx.tanggal && trx.tanggal.slice(0, 10) === today) trxHariIni++; if (trx.tanggal && trx.tanggal.slice(0, 7) === currentMonth) omzetPerPetaniBulanIni[trx.petani] = (omzetPerPetaniBulanIni[trx.petani] || 0) + trxTotal; if (trx.tanggal) { const trxDate = trx.tanggal.slice(0, 10); if (dateMap.has(trxDate)) dateMap.set(trxDate, dateMap.get(trxDate) + trxTotal); } }); } let petaniTerbaik = '-', maxOmzetBulanIni = 0; for(const p in omzetPerPetaniBulanIni){ if(omzetPerPetaniBulanIni[p] > maxOmzetBulanIni){ maxOmzetBulanIni = omzetPerPetaniBulanIni[p]; petaniTerbaik = p; } } document.getElementById('statTotalOmzet').textContent = 'Rp ' + formatRupiah(totalOmzet); document.getElementById('statTrxHariIni').textContent = trxHariIni; document.getElementById('statPetaniTerbaik').textContent = petaniTerbaik; const data7hari = Array.from(dateMap.values()); const ctx = document.getElementById('chart7Hari').getContext('2d'); const gridColor = 'rgba(0, 0, 0, 0.1)'; const textColor = '#6b7280'; if(rekapChart) rekapChart.destroy(); rekapChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Omzet per Hari', data: data7hari, backgroundColor: 'rgba(64, 145, 108, 0.6)', borderColor: 'rgba(64, 145, 108, 1)', borderWidth: 1, borderRadius: 5 }] }, options: { responsive: true, scales: { y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, padding: 10 } }, x: { grid: { display: false }, ticks: { color: textColor } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return `Omzet: Rp ${formatRupiah(context.raw)}`; } } } } } }); }
 function sortTable(key) { if (sortState.key === key) { sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc'; } else { sortState.key = key; sortState.direction = (key === 'tanggal') ? 'desc' : 'asc'; } showTabelRekap(); }
 window.showTabelRekap = function(petani){ const db = JSON.parse(localStorage.getItem(LS_KEY)||"{}"); petani = petani || document.getElementById('pilihPetani')?.value; const btnExport = document.getElementById('btnExportCsv'); const tabelRekapArea = document.getElementById('tabelRekap'); if(!petani) { tabelRekapArea.innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Pilih seorang petani untuk melihat detail rekap.</p>"; if (btnExport) btnExport.classList.add('hidden'); return; } if (document.getElementById('pilihPetani')) document.getElementById('pilihPetani').value = petani; let trxList = db[petani] || []; const searchTerm = document.getElementById('rekapSearch')?.value.toLowerCase() || ''; const tglMulai = document.getElementById('rekapMulai')?.value || ''; const tglSelesai = document.getElementById('rekapSelesai')?.value || ''; let filteredTrx = trxList.filter(trx => { const trxDate = trx.tanggal.slice(0, 10); if (tglMulai && trxDate < tglMulai) return false; if (tglSelesai && trxDate > tglSelesai) return false; if (searchTerm && !(trx.barang || []).some(b => b.nama.toLowerCase().includes(searchTerm))) return false; return true; }); filteredTrx.sort((a, b) => { const dir = sortState.direction === 'asc' ? 1 : -1; switch (sortState.key) { case 'tanggal': return (new Date(a.tanggal) - new Date(b.tanggal)) * dir; case 'total': return (getTrxTotal(a) - getTrxTotal(b)) * dir; default: return 0; } }); if(!filteredTrx.length) { tabelRekapArea.innerHTML = "<p class='text-sm text-gray-500 text-center py-4'>Tidak ada data transaksi yang cocok dengan filter.</p>"; btnExport.classList.add('hidden'); return; } btnExport.classList.remove('hidden'); const sortIndicator = (key) => { if (sortState.key === key) return sortState.direction === 'asc' ? ' <i class="fas fa-arrow-up text-xs"></i>' : ' <i class="fas fa-arrow-down text-xs"></i>'; return ''; }; let out = `<div class="overflow-x-auto card rounded-lg"><table class="w-full text-sm text-left"><thead class="text-xs uppercase bg-gray-100 text-gray-600"><tr><th class="px-4 py-3 align-top sortable" onclick="sortTable('tanggal')">Tanggal${sortIndicator('tanggal')}</th><th class="px-4 py-3">Item</th><th class="px-4 py-3 text-right align-top sortable" onclick="sortTable('total')">Total${sortIndicator('total')}</th><th class="px-4 py-3 text-center align-top">Aksi</th></tr></thead><tbody>`; let grandTotal = 0; filteredTrx.forEach((trx)=>{ const originalIndex = trxList.findIndex(originalTrx => originalTrx.tanggal === trx.tanggal && JSON.stringify(originalTrx.barang) === JSON.stringify(trx.barang) ); let totalPerTrx = getTrxTotal(trx); let itemSummary = (trx.barang||[]).filter(b => b.nama && b.qty).map(b => { let classes = "inline-block bg-gray-200 text-gray-800 text-xs font-semibold mr-1 mb-1 px-2.5 py-1 rounded-full"; if(searchTerm && b.nama.toLowerCase().includes(searchTerm)) classes += " bg-yellow-200"; return `<span class="${classes}">${b.nama} (${b.qty} ${b.satuan})</span>`; }).join(' '); out+=`<tr class="border-b"><td class="px-4 py-3 align-top whitespace-nowrap">${formatTanggalNota(trx.tanggal||"")}</td><td class="px-4 py-3">${itemSummary || '<i>-</i>'}</td><td class="px-4 py-3 text-right align-top whitespace-nowrap">Rp ${formatRupiah(totalPerTrx)}</td><td class="px-4 py-3 text-center align-top whitespace-nowrap"><button class="font-medium text-blue-600 hover:underline" onclick="muatUlangTransaksi('${petani}', ${originalIndex})">Edit</button><button class="font-medium text-red-600 hover:underline ml-3" onclick="hapusTransaksi('${petani}', ${originalIndex})">Hapus</button></td></tr>`; grandTotal += totalPerTrx; }); out+=`<tr class="bg-gray-100 font-bold"><td colspan="2" class="px-4 py-3 text-right uppercase">GRAND TOTAL</td><td class="px-4 py-3 text-right whitespace-nowrap">Rp ${formatRupiah(grandTotal)}</td><td></td></tr></tbody></table></div>`; tabelRekapArea.innerHTML=out; }
 function exportToCSV() { const petani = document.getElementById('pilihPetani').value; if (!petani) { showToast("Pilih petani terlebih dahulu!", "error"); return; } const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); const trxList = db[petani] || []; let grandTotal = 0; let csvContent = `Nama Toko:,"${document.getElementById('iNama').value}"\nAlamat:,"${document.getElementById('iAlamat').value}"\nNo. WA:,"${document.getElementById('iTelp').value}"\n\nNo. Trx,Nama Petani,Tanggal,Jam,Barang,Qty,Satuan,Harga,Subtotal\n`; trxList.forEach((trx, i) => { (trx.barang || []).forEach(b => { const qty = parseFloatSafe(b.qty); const harga = parseFloatSafe(b.harga); const subtotal = qty * harga; grandTotal += subtotal; const line = [ i + 1, `"${petani}"`, formatTanggalNota(trx.tanggal || "").split(" ")[0] || '', formatTanggalNota(trx.tanggal || "").split(" ")[1] || '', `"${(b.nama || '').replace(/"/g, '""')}"`, (b.qty || '0').replace('.',','), b.satuan || '', harga, subtotal ].join(','); csvContent += line + "\n"; }); }); csvContent += `\n,,,,,,,GRAND TOTAL,${grandTotal}\n`; const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", `rekap_${petani}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
-function buatRingkasanAdmin() { const hariIni = new Date().toISOString().slice(0, 10); const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); let rekapHariIniIndex = -1; if (db['Admin']) rekapHariIniIndex = db['Admin'].findIndex(trx => trx.tanggal && trx.tanggal.slice(0, 10) === hariIni); if (rekapHariIniIndex !== -1) if (!confirm("Ringkasan untuk hari ini sudah ada. Hapus dan buat ulang?")) return; const semuaBarangHariIni = []; let totalTransaksiDiringkas = 0; for (const petani in db) { if (petani === 'Admin') continue; db[petani].forEach(trx => { if (trx.tanggal && trx.tanggal.slice(0, 10) === hariIni) { totalTransaksiDiringkas++; if (trx.barang && trx.barang.length > 0) semuaBarangHariIni.push(...trx.barang); } }); } if (totalTransaksiDiringkas === 0) { showToast("Tidak ada transaksi untuk diringkas hari ini.", "info"); return; } const barangKolektif = semuaBarangHariIni.filter(b => b.nama && b.qty); if (barangKolektif.length === 0) { showToast("Tidak ada item barang valid untuk diringkas.", "info"); return; } const ringkasanAdmin = { nama: document.getElementById('iNama').value, alamat: document.getElementById('iAlamat').value, telp: document.getElementById('iTelp').value, petani: 'Admin', tanggal: new Date().toISOString(), barang: barangKolektif }; if (!db['Admin']) db['Admin'] = []; if (rekapHariIniIndex !== -1) db['Admin'].splice(rekapHariIniIndex, 1); db['Admin'].push(ringkasanAdmin); localStorage.setItem(LS_KEY, JSON.stringify(db)); showToast(`Ringkasan harian dibuat: ${totalTransaksiDiringkas} trx terkumpul.`); if (document.getElementById('rekapArea').innerHTML !== '') tampilkanRekap(); }
+async function buatRingkasanAdmin() { const hariIni = new Date().toISOString().slice(0, 10); const db = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); let rekapHariIniIndex = -1; if (db['Admin']) { rekapHariIniIndex = db['Admin'].findIndex(trx => trx.tanggal && trx.tanggal.slice(0, 10) === hariIni); } if (rekapHariIniIndex !== -1) { try { await showConfirm("Ringkasan untuk hari ini sudah ada. Hapus dan buat ulang?"); } catch (e) { return; } } const semuaBarangHariIni = []; let totalTransaksiDiringkas = 0; for (const petani in db) { if (petani === 'Admin') continue; db[petani].forEach(trx => { if (trx.tanggal && trx.tanggal.slice(0, 10) === hariIni) { totalTransaksiDiringkas++; if (trx.barang && trx.barang.length > 0) semuaBarangHariIni.push(...trx.barang); } }); } if (totalTransaksiDiringkas === 0) { showToast("Tidak ada transaksi untuk diringkas hari ini.", "info"); return; } const barangKolektif = semuaBarangHariIni.filter(b => b.nama && b.qty); if (barangKolektif.length === 0) { showToast("Tidak ada item barang valid untuk diringkas.", "info"); return; } const ringkasanAdmin = { nama: document.getElementById('iNama').value, alamat: document.getElementById('iAlamat').value, telp: document.getElementById('iTelp').value, petani: 'Admin', tanggal: new Date().toISOString(), barang: barangKolektif }; if (!db['Admin']) db['Admin'] = []; if (rekapHariIniIndex !== -1) db['Admin'].splice(rekapHariIniIndex, 1); db['Admin'].push(ringkasanAdmin); localStorage.setItem(LS_KEY, JSON.stringify(db)); showToast(`Ringkasan harian dibuat: ${totalTransaksiDiringkas} trx terkumpul.`); if (document.getElementById('rekapArea').innerHTML !== '') tampilkanRekap(); }
 function backupData() {
     const semuaData = {};
     for (let i = 0; i < localStorage.length; i++) {
@@ -360,11 +372,12 @@ function importData(input) {
     const file = input.files[0];
     if(!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         let data;
         try { data = JSON.parse(e.target.result); } catch(err) { showToast("File backup tidak valid!", "error"); return; }
         if(!data || typeof data !== "object"){ showToast("Data backup tidak valid!", "error"); return; }
-        if (confirm("Ini akan menimpa SEMUA data yang ada. Lanjutkan?")) {
+        try {
+            await showConfirm("Ini akan menimpa SEMUA data yang ada. Lanjutkan?");
             localStorage.clear();
             for (const key in data) {
                 if (Object.hasOwnProperty.call(data, key)) {
@@ -374,6 +387,8 @@ function importData(input) {
             localStorage.setItem('conf_transactionsSinceLastBackup', '0');
             showToast("Data berhasil di-restore!", "success");
             setTimeout(() => window.location.reload(), 1500);
+        } catch(err) {
+            console.log("Proses restore dibatalkan.");
         }
     };
     reader.readAsText(file);
@@ -549,4 +564,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 </body>
-    </html>
+            </html>
