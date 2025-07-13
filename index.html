@@ -11,6 +11,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/jsrsasign/lib/jsrsasign.min.js"></script>
 
     <style>
         :root {
@@ -237,9 +239,10 @@
     <button onclick="kirimApresiasiWA()" class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:from-green-600 hover:to-teal-600 transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
         <i class="fab fa-whatsapp"></i> Kirim Apresiasi via WA
     </button>
-    <p class="text-xs text-center text-gray-400 mt-3">ID Anda akan disertakan otomatis.</p>
+    <p class="text-xs text-center text-gray-400 mt-3">ID Aplikasi Anda akan disertakan otomatis.</p>
     <code id="installationId" class="hidden"></code> 
 </div>
+
 <div id="modalPreview" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
     <div id="modalContent" class="bg-white rounded-lg shadow-xl w-full max-w-sm transform scale-95 transition-transform duration-300">
         <div class="p-4 border-b flex justify-between items-center">
@@ -570,16 +573,171 @@ function saveConfig() { localStorage.setItem('conf_nama', document.getElementByI
 document.getElementById('iNama').addEventListener('input', renderNota); document.getElementById('iAlamat').addEventListener('input', renderNota); document.getElementById('iTelp').addEventListener('input', renderNota);
 function updateBackupCardStatus() { const statusEl = document.getElementById('backupStatus'); if (!statusEl) return; const txCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0'); if (txCount === 0) { statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-semibold text-green-700">Data Anda sudah aman dan ter-backup.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-green-100'; } else if (txCount < 5) { statusEl.innerHTML = `<i class="fas fa-info-circle text-blue-500 mr-2"></i><span class="font-semibold text-blue-700">${txCount} transaksi baru belum di-backup.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-blue-100'; } else { statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i><span class="font-semibold text-yellow-700">Perhatian: ${txCount} transaksi belum di-backup! Segera amankan data.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-yellow-100'; } }
 
-// --- LICENSE & DONATION SCRIPT ---
-const PERMANENT_PREFIX = "NOTA58-"; const EXPIRING_PREFIX = "NOTA58-EXP-"; const LS_INSTALL_ID = "conf_installId"; const LS_LICENSE_KEY = "conf_licenseKey"; const LS_LICENSE_STATUS = "conf_licenseStatus"; const LS_LICENSE_EXPIRY = "conf_licenseExpiry";
+// --- LICENSE & DONATION SCRIPT (DIUBAH TOTAL) ---
+const LS_INSTALL_ID = "conf_installId";
+const LS_LICENSE_KEY = "conf_licenseKey";
+const LS_LICENSE_STATUS = "conf_licenseStatus";
+const LS_LICENSE_EXPIRY = "conf_licenseExpiry";
+
+// =========================================================================
+// == PENTING: Ganti dengan Kunci Publik (Public Key) Anda sendiri! ==
+// =========================================================================
+const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5dxhYf027I3kMH2sC4IX
+6VOoFWjyIl/ce0FDbWjK3uIspC9+Z7jv2zAPtz36dmE9o4ZwwzZF4sEWa84bm/i3
+1gKC/5wd81yiuYhFaD8JgAJm0LMP88oEFOQPVOPChBOHfydvVQTq2hM4OsW/cXXp
+oEUO8eiQtdOtJ//nlg2zSFRqbKoSjCLzJhDU3lo5oxIerT7txFyf3g3lDlY1P2mG
+WinBgxvPqZ2P9UPIMt0XS0/2hLaugFGqEt7uPqBLFbA4FziChvc8yS8pecuYYHYn
+lnKkvVhHXo6uTszaXbzVBEQJ4FpocFqvQzaum6GADwWa2VVNBcQxLJ7+/OrJdACO
+SQIDAQAB
+-----END PUBLIC KEY-----`;
+// =========================================================================
+
 function kirimApresiasiWA() { const installId = localStorage.getItem(LS_INSTALL_ID) || 'ID tidak ditemukan'; const noWA = '6281775700114'; const pesan = `Halo Mas Ansor, saya sangat terbantu dengan aplikasi Nota Rekap buatan Anda. Saya ingin memberikan apresiasi sebagai bentuk dukungan.\n\nMohon informasinya ya. Terima kasih.\n\nID Aplikasi saya: ${installId}`; const textEncoded = encodeURIComponent(pesan); const url = `https://wa.me/${noWA}?text=${textEncoded}`; window.open(url, '_blank'); }
 function generateUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }); }
-function validateLicenseKey(installId, licenseKey) { const expectedIdPart = installId.substring(0, 8).split('').reverse().join(''); if (licenseKey.startsWith(EXPIRING_PREFIX)) { const encodedPayload = licenseKey.replace(EXPIRING_PREFIX, ''); try { const payload = atob(encodedPayload); const [keyIdPart, expiryString] = payload.split('|'); if (keyIdPart !== expectedIdPart) return { isValid: false }; const expiryDate = new Date(expiryString + 'T23:59:59'); const today = new Date(); today.setHours(0, 0, 0, 0); if (expiryDate >= today) { return { isValid: true, expires: expiryString }; } else { return { isValid: false, isExpired: true, expires: expiryString }; } } catch (e) { return { isValid: false }; } } if (licenseKey.startsWith(PERMANENT_PREFIX)) { const keyIdPart = licenseKey.replace(PERMANENT_PREFIX, ''); if (keyIdPart === expectedIdPart) { return { isValid: true, expires: 'permanent' }; } } return { isValid: false }; }
-function activateLicense() { const installId = localStorage.getItem(LS_INSTALL_ID); const licenseKey = document.getElementById('iLicenseKey').value.trim(); const statusEl = document.getElementById('licenseStatus'); if (!licenseKey) return; const validationResult = validateLicenseKey(installId, licenseKey); if (validationResult.isValid) { localStorage.setItem(LS_LICENSE_KEY, licenseKey); localStorage.setItem(LS_LICENSE_STATUS, "VALID"); localStorage.setItem(LS_LICENSE_EXPIRY, validationResult.expires); let successMsg = ''; if (validationResult.expires === 'permanent') { successMsg = 'Lisensi permanen berhasil diaktifkan. Terima kasih!'; } else { const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' }); successMsg = `Lisensi aktif hingga ${tgl}. Terima kasih!`; } statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> ${successMsg}`; statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-green-100 text-green-800'; document.getElementById('licenseArea').style.display = 'none'; closeToast(); } else if (validationResult.isExpired) { const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' }); statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi telah kedaluwarsa pada ${tgl}.`; statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800'; } else { statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi tidak valid.`; statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800'; } }
-function showDonationToast() { const toast = document.getElementById('donationToast'); if (toast) { toast.classList.remove('translate-x-[150%]'); toast.classList.add('translate-x-0'); } }
-function closeToast() { const toast = document.getElementById('donationToast'); if (toast) { toast.classList.remove('translate-x-0'); toast.classList.add('translate-x-[150%]'); } }
-function initLicenseSystem() { let installId = localStorage.getItem(LS_INSTALL_ID); if (!installId) { installId = generateUUID(); localStorage.setItem(LS_INSTALL_ID, installId); } document.getElementById('installationId').textContent = installId; const licenseKey = localStorage.getItem(LS_LICENSE_KEY); if (!licenseKey) { setTimeout(showDonationToast, 5000); return; } const validationResult = validateLicenseKey(installId, licenseKey); const licenseArea = document.getElementById('licenseArea'); const statusEl = document.getElementById('licenseStatus'); if (validationResult.isValid) { licenseArea.style.display = 'none'; let statusMsg = ''; if (validationResult.expires === 'permanent') { statusMsg = '<i class="fas fa-star text-yellow-500"></i> Status: <span class="font-bold">Premium (Permanen)</span>'; } else { const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' }); statusMsg = `<i class="fas fa-check-circle text-green-500"></i> Status: <span class="font-bold">Premium</span> (Aktif s/d ${tgl})`; } statusEl.innerHTML = statusMsg; statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-blue-100 text-blue-800'; } else { localStorage.setItem(LS_LICENSE_STATUS, "EXPIRED"); let expiredMsg = 'Lisensi Anda tidak valid.'; if(validationResult.isExpired) { const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' }); expiredMsg = `Lisensi Anda telah kedaluwarsa pada ${tgl}. Silakan perbarui.`; } statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-600"></i> ${expiredMsg}`; statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-yellow-100 text-yellow-800'; setTimeout(showDonationToast, 3000); } }
+
+/**
+ * Memvalidasi kunci lisensi menggunakan tanda tangan digital (RSA-SHA256)
+ * @param {string} installId - ID unik instalasi aplikasi.
+ * @param {string} licenseKey - Kunci lisensi yang akan divalidasi.
+ * @returns {object} - Objek berisi status validasi { isValid, isExpired, expires }
+ */
+function validateLicenseKey(installId, licenseKey) {
+    if (!licenseKey || !installId) return { isValid: false };
+    if (PUBLIC_KEY.includes("...")) {
+        console.error("VALIDASI LISENSI DILONCATI: Kunci Publik belum diatur!");
+        return { isValid: true, expires: 'permanent' }; // Loncat validasi jika kunci publik belum diisi
+    }
+
+    try {
+        const decodedKey = atob(licenseKey);
+        const parts = decodedKey.split('|');
+        
+        // Format: installId|expiryDate|signatureHex
+        if (parts.length !== 3) return { isValid: false, reason: "Format kunci salah." };
+
+        const keyInstallId = parts[0];
+        const expiryDateStr = parts[1];
+        const signatureHex = parts[2];
+
+        // 1. Periksa apakah kunci lisensi ini untuk instalasi yang benar
+        if (keyInstallId !== installId) {
+            return { isValid: false, reason: "Kunci ini untuk ID Aplikasi yang berbeda." };
+        }
+
+        const dataToVerify = keyInstallId + '|' + expiryDateStr;
+
+        // 2. Verifikasi tanda tangan digital
+        const sig = new KJUR.crypto.Signature({ "alg": "SHA256withRSA" });
+        sig.init(PUBLIC_KEY);
+        sig.updateString(dataToVerify);
+        const isValidSignature = sig.verify(signatureHex);
+
+        if (!isValidSignature) {
+            return { isValid: false, reason: "Tanda tangan tidak valid." };
+        }
+
+        // 3. Jika tanda tangan valid, periksa tanggal kedaluwarsa
+        const expiryDate = new Date(expiryDateStr + 'T23:59:59');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (expiryDate < today) {
+            return { isValid: false, isExpired: true, expires: expiryDateStr };
+        }
+
+        // Jika semua lolos, lisensi valid
+        return { isValid: true, expires: expiryDateStr };
+
+    } catch (e) {
+        console.error("Error validasi lisensi:", e);
+        return { isValid: false, reason: "Error saat memproses kunci." };
+    }
+}
+
+function activateLicense() {
+    const installId = localStorage.getItem(LS_INSTALL_ID);
+    const licenseKey = document.getElementById('iLicenseKey').value.trim();
+    const statusEl = document.getElementById('licenseStatus');
+    if (!licenseKey) return;
+
+    const validationResult = validateLicenseKey(installId, licenseKey);
+
+    if (validationResult.isValid) {
+        localStorage.setItem(LS_LICENSE_KEY, licenseKey);
+        localStorage.setItem(LS_LICENSE_STATUS, "VALID");
+        localStorage.setItem(LS_LICENSE_EXPIRY, validationResult.expires);
+        
+        const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+        const successMsg = `Lisensi berhasil diaktifkan hingga ${tgl}. Terima kasih!`;
+        
+        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> ${successMsg}`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-green-100 text-green-800';
+        document.getElementById('licenseArea').style.display = 'none';
+        closeToast();
+    } else if (validationResult.isExpired) {
+        const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi telah kedaluwarsa pada ${tgl}.`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800';
+    } else {
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi tidak valid. ${validationResult.reason || ''}`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800';
+    }
+}
+
+function showDonationToast() {
+    const toast = document.getElementById('donationToast');
+    if (toast) {
+        toast.classList.remove('translate-x-[150%]');
+        toast.classList.add('translate-x-0');
+    }
+}
+
+function closeToast() {
+    const toast = document.getElementById('donationToast');
+    if (toast) {
+        toast.classList.remove('translate-x-0');
+        toast.classList.add('translate-x-[150%]');
+    }
+}
+
+function initLicenseSystem() {
+    let installId = localStorage.getItem(LS_INSTALL_ID);
+    if (!installId) {
+        installId = generateUUID();
+        localStorage.setItem(LS_INSTALL_ID, installId);
+    }
+    document.getElementById('installationId').textContent = installId;
+
+    const licenseKey = localStorage.getItem(LS_LICENSE_KEY);
+    if (!licenseKey) {
+        setTimeout(showDonationToast, 5000); // Tampilkan donasi jika belum ada lisensi
+        return;
+    }
+
+    const validationResult = validateLicenseKey(installId, licenseKey);
+    const licenseArea = document.getElementById('licenseArea');
+    const statusEl = document.getElementById('licenseStatus');
+
+    if (validationResult.isValid) {
+        licenseArea.style.display = 'none';
+        const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+        const statusMsg = `<i class="fas fa-check-circle text-green-500"></i> Status: <span class="font-bold">Premium</span> (Aktif s/d ${tgl})`;
+        statusEl.innerHTML = statusMsg;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-blue-100 text-blue-800';
+    } else {
+        localStorage.setItem(LS_LICENSE_STATUS, "EXPIRED");
+        let expiredMsg = 'Lisensi Anda tidak valid atau untuk ID Aplikasi yang lain.';
+        if (validationResult.isExpired) {
+            const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+            expiredMsg = `Lisensi Anda telah kedaluwarsa pada ${tgl}. Silakan perbarui.`;
+        }
+        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-600"></i> ${expiredMsg}`;
+        statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-yellow-100 text-yellow-800';
+        setTimeout(showDonationToast, 3000);
+    }
+}
 </script>
 
 </body>
-</html>
+    </html>
