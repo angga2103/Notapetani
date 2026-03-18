@@ -191,22 +191,25 @@
                      </div>
                      <button type="button" onclick="saveConfig()" class="w-full bg-blue-600 text-white font-semibold py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><i class="fas fa-save"></i> Simpan Info</button>
 
-<div id="licenseArea" class="pt-4 mt-4 border-t">
-                         <div class="mb-3 text-sm bg-blue-50 text-blue-800 p-3 rounded-lg border border-blue-200">
-                             <p><i class="fas fa-info-circle"></i> <strong>PENTING:</strong> Simpan <span class="font-mono bg-white px-1 rounded border">ID Aplikasi</span> dan <span class="font-mono bg-white px-1 rounded border">Kunci Lisensi</span> Anda di catatan/WhatsApp. Gunakan untuk memulihkan lisensi jika HP ter-reset.</p>
-                             <p class="mt-1 font-mono text-xs text-gray-600 break-all">ID Anda saat ini: <span id="displayInstallId" class="font-bold text-blue-900"></span></p>
-                         </div>
-                         
-                         <label class="block text-sm font-medium text-gray-600 mb-1">Pulihkan / Masukkan Lisensi</label>
-                         <div class="space-y-2">
-                             <input id="iRestoreId" class="border bg-gray-50 rounded-lg w-full p-2 focus:ring-2 focus:ring-indigo-500 text-xs font-mono" placeholder="ID Aplikasi (Biarkan kosong jika aktivasi baru)">
-                             <div class="flex gap-2">
-                                 <input id="iLicenseKey" class="border bg-gray-50 rounded-lg w-full p-2 focus:ring-2 focus:ring-indigo-500 text-xs font-mono" placeholder="Masukkan Kunci Lisensi di sini...">
-                                 <button onclick="activateLicense()" class="bg-indigo-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">Aktifkan</button>
-                             </div>
-                         </div>
-                    </div>
-                     <div id="licenseStatus" class="p-3 rounded-lg mt-2 text-center text-sm"></div>
+<div class="pt-4 mt-4 border-t">
+     <div class="mb-3 text-sm bg-blue-50 text-blue-800 p-3 rounded-lg border border-blue-200">
+         <p><i class="fas fa-info-circle"></i> <strong>PENTING:</strong> Simpan <span class="font-mono bg-white px-1 rounded border">ID Aplikasi</span> dan <span class="font-mono bg-white px-1 rounded border">Kunci Lisensi</span> Anda. Gunakan untuk memulihkan lisensi jika HP ter-reset.</p>
+         <p class="mt-1 font-mono text-xs text-gray-600 break-all">ID Anda saat ini: <span id="displayInstallId" class="font-bold text-blue-900"></span></p>
+     </div>
+</div>
+
+<div id="licenseArea">
+     <label class="block text-sm font-medium text-gray-600 mb-1">Pulihkan / Masukkan Lisensi</label>
+     <div class="space-y-2">
+         <input id="iRestoreId" class="border bg-gray-50 rounded-lg w-full p-2 focus:ring-2 focus:ring-indigo-500 text-xs font-mono" placeholder="ID Aplikasi (Biarkan kosong jika aktivasi baru)">
+         <div class="flex gap-2">
+             <input id="iLicenseKey" class="border bg-gray-50 rounded-lg w-full p-2 focus:ring-2 focus:ring-indigo-500 text-xs font-mono" placeholder="Masukkan Kunci Lisensi di sini...">
+             <button onclick="activateLicense()" class="bg-indigo-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">Aktifkan</button>
+         </div>
+     </div>
+</div>
+
+<div id="licenseStatus" class="p-3 rounded-lg mt-2 text-center text-sm"></div>
 
                 </div>
             </div>
