@@ -139,11 +139,12 @@
                     </div>
                     <div class="space-y-3 pt-6 mt-4 border-t">
                         <button type="button" id="btnSimpan" onclick="simpanTransaksi()" class="w-full bg-primary text-white shadow-lg py-3 px-4 rounded-lg font-bold hover:bg-secondary transition-colors focus:outline-none focus:ring-4 focus:ring-green-300 text-lg flex items-center justify-center gap-2"><i class="fas fa-save"></i> Simpan Nota</button>
-                        <div class="grid grid-cols-3 gap-3">
-                            <button type="button" onclick="openModalPreview()" class="bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-800 transition-colors text-sm flex items-center justify-center gap-2"><i class="fas fa-eye"></i> View</button>
-                            <button type="button" onclick="salinNota()" class="bg-gray-100 border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm flex items-center justify-center gap-2"><i class="fas fa-copy"></i> Salin</button>
-                            <button type="button" onclick="generateInvoiceA4()" class="bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2"><i class="fas fa-print"></i> Cetak A4</button>
-                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <button type="button" onclick="openModalPreview()" class="bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-800 transition-colors text-sm flex items-center justify-center gap-2"><i class="fas fa-eye"></i> View</button>
+    <button type="button" onclick="salinNota()" class="bg-gray-100 border border-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm flex items-center justify-center gap-2"><i class="fas fa-copy"></i> Salin</button>
+    <button type="button" onclick="generateInvoiceA4()" class="bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2"><i class="fas fa-file-pdf"></i> A4</button>
+    <button type="button" onclick="cetakThermalBluetooth()" class="bg-teal-600 text-white py-2 rounded-lg hover:bg-teal-700 transition-colors font-semibold text-sm flex items-center justify-center gap-2 shadow-md"><i class="fab fa-bluetooth-b"></i> Thermal</button>
+</div>
                     </div>
                 </div>
             </div>
@@ -563,6 +564,156 @@ function importData(input) {
 function saveConfig() { localStorage.setItem('conf_nama', document.getElementById('iNama').value); localStorage.setItem('conf_alamat', document.getElementById('iAlamat').value); localStorage.setItem('conf_telp', document.getElementById('iTelp').value); showToast('Informasi toko berhasil disimpan!', 'success'); renderNota(); }
 document.getElementById('iNama').addEventListener('input', renderNota); document.getElementById('iAlamat').addEventListener('input', renderNota); document.getElementById('iTelp').addEventListener('input', renderNota);
 function updateBackupCardStatus() { const statusEl = document.getElementById('backupStatus'); if (!statusEl) return; const txCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0'); if (txCount === 0) { statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-semibold text-green-700">Data Anda sudah aman dan ter-backup.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-green-100'; } else if (txCount < 5) { statusEl.innerHTML = `<i class="fas fa-info-circle text-blue-500 mr-2"></i><span class="font-semibold text-blue-700">${txCount} transaksi baru belum di-backup.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-blue-100'; } else { statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i><span class="font-semibold text-yellow-700">Perhatian: ${txCount} transaksi belum di-backup! Segera amankan data.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-yellow-100'; } }
+
+// =========================================================================
+// --- FITUR CETAK BLUETOOTH THERMAL (58mm ESC/POS) ---
+// =========================================================================
+
+// 1. Fungsi Format Teks ke ESC/POS Byte Array
+function generateESCPOS(data) {
+    let receipt = [];
+    const ESC = 0x1B; 
+    
+    // Fungsi pembantu menambahkan byte
+    const addCmd = (cmd) => receipt.push(...cmd);
+    const addText = (text) => {
+        // Mengubah teks ke byte (ASCII standar)
+        const bytes = new TextEncoder().encode(text);
+        for(let b of bytes) receipt.push(b);
+    };
+    const addLine = (text = "") => { addText(text + "\n"); };
+
+    // Inisialisasi Printer
+    addCmd([ESC, 0x40]); 
+    
+    // --- HEADER (Rata Tengah) ---
+    addCmd([ESC, 0x61, 1]); // Align Center
+    addCmd([ESC, 0x45, 1]); // Bold ON
+    addLine(data.nama);
+    addCmd([ESC, 0x45, 0]); // Bold OFF
+    addLine(data.alamat);
+    addLine("WA: " + data.telp);
+    addLine("--------------------------------"); // Pas 32 Karakter
+    
+    // --- BODY (Rata Kiri) ---
+    addCmd([ESC, 0x61, 0]); // Align Left
+    if (data.petani) addLine("Plg : " + data.petani.substring(0, 26));
+    addLine("Tgl : " + formatTanggalNota(data.tanggal));
+    addLine("--------------------------------");
+    
+    // --- ITEMS ---
+    let grandTotal = 0;
+    let totalItem = 0;
+    
+    (data.barang || []).forEach(b => {
+        if (!b.nama) return;
+        let qty = parseFloatSafe(b.qty);
+        let harga = parseFloatSafe(b.harga);
+        let total = qty * harga;
+        grandTotal += total;
+        totalItem++;
+        
+        // Baris 1: Nama Barang
+        addLine(b.nama.substring(0, 32));
+        
+        // Baris 2: Qty x Harga [Spasi] Total (Rata Kanan Kiri)
+        let qtyStr = (qty % 1 === 0) ? qty : qty.toFixed(2).replace(".",",");
+        let detailStr = `${qtyStr} ${b.satuan} x ${formatRupiah(harga)}`;
+        let totalStr = formatRupiah(total);
+        addLine(padBoth(detailStr, totalStr, 32));
+    });
+    
+    addLine("--------------------------------");
+    
+    // --- FOOTER SUMMARY ---
+    addCmd([ESC, 0x45, 1]); // Bold ON
+    addLine(padBoth("TOTAL", "Rp " + formatRupiah(grandTotal), 32));
+    addCmd([ESC, 0x45, 0]); // Bold OFF
+    addLine("Item: " + totalItem);
+    addLine("--------------------------------");
+    
+    // Rata Tengah untuk Penutup
+    addCmd([ESC, 0x61, 1]); // Align Center
+    addLine("Terima Kasih");
+    
+    // Feed Kertas 3 baris agar mudah disobek
+    addLine("\n\n\n");
+    
+    return new Uint8Array(receipt);
+}
+
+// 2. Fungsi Eksekusi Web Bluetooth API
+async function cetakThermalBluetooth() {
+    const dataNota = getNotaForm();
+    if (!dataNota.petani) { showToast("Isi nama petani dahulu!", "error"); return; }
+    if (!dataNota.barang.some(b => b.nama && b.qty)) { showToast("Data barang masih kosong!", "error"); return; }
+
+    if (!navigator.bluetooth) {
+        showToast("Browser Anda tidak mendukung fitur Bluetooth. Gunakan Google Chrome di Android.", "error");
+        return;
+    }
+
+    try {
+        showToast("Mencari printer bluetooth...", "info");
+        
+        // Meminta izin koneksi ke perangkat Bluetooth (Menerima semua device BLE)
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [
+                '000018f0-0000-1000-8000-00805f9b34fb', // Service Printer Umum 1
+                'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Service Printer Umum 2
+                '49535343-fe7d-4ae5-8fa9-9fafd205e455', // Service Printer Umum 3
+                '0000fee7-0000-1000-8000-00805f9b34fb'  // Service Printer Umum 4
+            ]
+        });
+
+        showToast("Menghubungkan ke " + device.name + "...", "info");
+        const server = await device.gatt.connect();
+
+        let printCharacteristic = null;
+        const services = await server.getPrimaryServices();
+
+        // Mencari Karakteristik yang bisa ditulis (Writable)
+        for (const service of services) {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+                if (char.properties.write || char.properties.writeWithoutResponse) {
+                    printCharacteristic = char;
+                    break;
+                }
+            }
+            if (printCharacteristic) break;
+        }
+
+        if (!printCharacteristic) {
+            showToast("Printer tidak memiliki akses tulis (Write Characteristic).", "error");
+            device.gatt.disconnect();
+            return;
+        }
+
+        // Generate data struk ESC/POS
+        const dataBytes = generateESCPOS(dataNota);
+        
+        // Kirim data secara bertahap (Chunking) karena BLE memiliki batas memori transfer
+        const chunkSize = 100;
+        for (let i = 0; i < dataBytes.length; i += chunkSize) {
+            const chunk = dataBytes.slice(i, i + chunkSize);
+            await printCharacteristic.writeValue(chunk);
+        }
+
+        showToast("Cetak Berhasil!", "success");
+        device.gatt.disconnect(); // Putus koneksi agar hemat baterai printer
+
+    } catch (error) {
+        console.error("Bluetooth Error:", error);
+        // Error handling jika user membatalkan pilihan device
+        if(error.name === 'NotFoundError') {
+            showToast("Pencarian printer dibatalkan.", "warning");
+        } else {
+            showToast("Gagal menyambung: Pastikan GPS & Bluetooth HP aktif.", "error");
+        }
+    }
+}
 
 // =========================================================================
 // --- SYSTEM AKTIVASI OTOMATIS QRIS & LISENSI ---
