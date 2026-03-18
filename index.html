@@ -226,20 +226,11 @@
 </main>
 
 <div id="donationToast" class="no-print fixed bottom-5 right-5 w-80 bg-white rounded-xl shadow-2xl p-5 border transition-transform transform translate-x-[150%] duration-500 z-50">
-    <button onclick="closeToast()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl font-bold">&times;</button>
-    <div class="flex items-center gap-3 mb-4">
-        <div class="bg-gradient-to-tr from-green-400 to-blue-500 text-white rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0">
-            <i class="fas fa-rocket text-xl"></i>
-        </div>
-        <div>
-            <p class="font-bold text-gray-800">Dukung Developer!</p>
-            <p class="text-sm text-gray-600">Suka dengan aplikasi ini? Beri apresiasi untuk mendukung pengembangan selanjutnya.</p>
-        </div>
-    </div>
-    <button onclick="kirimApresiasiWA()" class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:from-green-600 hover:to-teal-600 transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
-        <i class="fab fa-whatsapp"></i> Kirim Apresiasi via WA
+    <button onclick="beliLisensiOtomatis()" class="w-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:from-green-600 hover:to-teal-600 transition-all duration-300 flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
+        <i class="fas fa-qrcode"></i> Beli Premium (Otomatis QRIS)
     </button>
-    <p class="text-xs text-center text-gray-400 mt-3">ID Aplikasi Anda akan disertakan otomatis.</p>
+    
+    <p class="text-xs text-center text-gray-400 mt-3">Nominal Rp 30.000 / 6 Bulan.</p>
     <code id="installationId" class="hidden"></code> 
 </div>
 
@@ -573,16 +564,28 @@ function saveConfig() { localStorage.setItem('conf_nama', document.getElementByI
 document.getElementById('iNama').addEventListener('input', renderNota); document.getElementById('iAlamat').addEventListener('input', renderNota); document.getElementById('iTelp').addEventListener('input', renderNota);
 function updateBackupCardStatus() { const statusEl = document.getElementById('backupStatus'); if (!statusEl) return; const txCount = parseInt(localStorage.getItem('conf_transactionsSinceLastBackup') || '0'); if (txCount === 0) { statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-semibold text-green-700">Data Anda sudah aman dan ter-backup.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-green-100'; } else if (txCount < 5) { statusEl.innerHTML = `<i class="fas fa-info-circle text-blue-500 mr-2"></i><span class="font-semibold text-blue-700">${txCount} transaksi baru belum di-backup.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-blue-100'; } else { statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i><span class="font-semibold text-yellow-700">Perhatian: ${txCount} transaksi belum di-backup! Segera amankan data.</span>`; statusEl.className = 'p-3 rounded-lg mb-4 text-center bg-yellow-100'; } }
 
-// --- LICENSE & DONATION SCRIPT (DIUBAH TOTAL) ---
-const LS_INSTALL_ID = "conf_installId";
-const LS_LICENSE_KEY = "conf_licenseKey";
-const LS_LICENSE_STATUS = "conf_licenseStatus";
-const LS_LICENSE_EXPIRY = "conf_licenseExpiry";
+// =========================================================================
+// --- SYSTEM AKTIVASI OTOMATIS QRIS & LISENSI ---
+// =========================================================================
+
+// Variabel Global Baru
+let checkPaymentInterval;
+let currentTrxId = null;
+
+// Konfigurasi Link Publik Backend Termux Anda (Via Cloudflare Tunnel)
+const BACKEND_URL = "https://notapetani.kasiron.my.id"; 
+const URL_BACKEND_CREATE = `${BACKEND_URL}/api/create_qris`; 
+const URL_BACKEND_CHECK = `${BACKEND_URL}/api/check_qris`;
+
+// Variabel LocalStorage Keys
+const LS_KEY_INSTALL = "conf_installId";
+const LS_KEY_LICENSE = "conf_licenseKey";
 
 // =========================================================================
-// == PENTING: Ganti dengan Kunci Publik (Public Key) Anda sendiri! ==
+// == PENTING: Gunakan Kunci Publik (Public Key) RSA Anda sendiri! ==
+// == Harus pasangan dari Private Key yang ada di Termux server.js  ==
 // =========================================================================
-const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+const RSA_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBlaoHnhEdDnnPP5OpljhmL
 gbg9RFlr0Utps5wu5smatNmK9bLok40U+Tftb49gUizPIShJq68/LWkP0j/2aGiS
 S306fXk6nWP6eH32egrFwHOtmg7Ikbto2z7pEO1dGrjuk8ya6TqHsY1qOdrVgvjP
@@ -593,70 +596,177 @@ AgMBAAE=
 -----END PUBLIC KEY-----`;
 // =========================================================================
 
-function kirimApresiasiWA() { const installId = localStorage.getItem(LS_INSTALL_ID) || 'ID tidak ditemukan'; const noWA = '6281775700114'; const pesan = `Halo Mas Ansor, saya sangat terbantu dengan aplikasi Nota Rekap buatan Anda. Saya ingin memberikan apresiasi sebagai bentuk dukungan.\n\nMohon informasinya ya. Terima kasih.\n\nID Aplikasi saya: ${installId}`; const textEncoded = encodeURIComponent(pesan); const url = `https://wa.me/${noWA}?text=${textEncoded}`; window.open(url, '_blank'); }
-function generateUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }); }
 
-/**
- * Memvalidasi kunci lisensi menggunakan tanda tangan digital (RSA-SHA256)
- * @param {string} installId - ID unik instalasi aplikasi.
- * @param {string} licenseKey - Kunci lisensi yang akan divalidasi.
- * @returns {object} - Objek berisi status validasi { isValid, isExpired, expires }
- */
+// --- 1. Fungsi Utama: Mulai Proses Pembelian ---
+async function beliLisensiOtomatis() {
+    const installId = localStorage.getItem(LS_KEY_INSTALL);
+    if (!installId) { showToast("ID Aplikasi tidak ditemukan.", "error"); return; }
+    
+    // Tampilkan Modal & State Loading
+    const modal = document.getElementById('modalQris');
+    const modalContent = document.getElementById('modalQrisContent');
+    document.getElementById('qrisLoading').classList.remove('hidden');
+    document.getElementById('qrisContainer').classList.add('hidden');
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    modalContent.classList.remove('scale-95');
+
+    try {
+        // Minta QRIS ke Backend Termux Anda
+        const response = await fetch(URL_BACKEND_CREATE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ install_id: installId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.qris_url) {
+            // Tampilkan Gambar QRIS
+            document.getElementById('qrisImage').src = data.qris_url;
+            currentTrxId = data.trx_id; // Simpan ID transaksi dari Pakasir
+            
+            document.getElementById('qrisLoading').classList.add('hidden');
+            document.getElementById('qrisContainer').classList.remove('hidden');
+            
+            // Mulai mengecek status pembayaran setiap 5 detik
+            mulaiPollingCekPembayaran(installId, currentTrxId);
+        } else {
+            showToast("Gagal terhubung ke Pakasir: " + (data.message || "Error"), "error");
+            closeModalQris();
+        }
+    } catch (err) {
+        console.error("Error Fetch Create:", err);
+        showToast("Gagal menghubungi server Anda (Cek Termux & Tunnel).", "error");
+        closeModalQris();
+    }
+}
+
+// --- 2. Fungsi Polling: Mengecek Pembayaran ke Backend ---
+function mulaiPollingCekPembayaran(installId, trxId) {
+    clearInterval(checkPaymentInterval); // Pastikan tidak ada interval ganda
+    
+    // UI Update PENDING
+    const statusText = document.getElementById('qrisStatus');
+    const statusBox = document.getElementById('qrisStatusBox');
+    
+    checkPaymentInterval = setInterval(async () => {
+        try {
+            const response = await fetch(URL_BACKEND_CHECK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trx_id: trxId, install_id: installId })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'PAID') {
+                // BERHASIL LUNAS!
+                clearInterval(checkPaymentInterval);
+                
+                // Update UI SUKSES
+                statusText.innerHTML = `<i class="fas fa-check-circle"></i> Pembayaran Sukses!`;
+                statusText.classList.remove('animate-pulse');
+                statusBox.className = "p-3 rounded-lg bg-green-100 text-green-800 border border-green-200";
+                
+                // Masukkan Kunci Lisensi baru yang dikirim backend
+                if (data.license_key) {
+                    document.getElementById('iLicenseKey').value = data.license_key;
+                    // Aktifkan lisensi secara otomatis (memanggil fungsi asli activateLicense)
+                    activateLicense(); 
+                    
+                    setTimeout(() => {
+                        closeModalQris();
+                        showToast("Terima kasih! Lisensi Premium diaktifkan.", "success", 5000);
+                    }, 2000);
+                }
+            } else if (data.status === 'EXPIRED') {
+                // TRANSAKSI KADALUWARSA
+                clearInterval(checkPaymentInterval);
+                statusText.innerHTML = `<i class="fas fa-times-circle"></i> Waktu Habis / Kadaluwarsa.`;
+                statusText.classList.remove('animate-pulse');
+                statusBox.className = "p-3 rounded-lg bg-red-100 text-red-800 border border-red-200";
+            }
+            // Jika status masih PENDING, biarkan interval berjalan
+        } catch (err) {
+            console.error("Gagal mengecek status", err);
+            // Diamkan error jaringan agar polling tidak berhenti total
+        }
+    }, 5000); // Cek setiap 5 detik
+}
+
+// --- 3. Fungsi Utility Modal ---
+function closeModalQris() {
+    clearInterval(checkPaymentInterval); // Stop nge-ping server
+    const modal = document.getElementById('modalQris');
+    const modalContent = document.getElementById('modalQrisContent');
+    modal.classList.add('opacity-0');
+    modalContent.classList.add('scale-95');
+    setTimeout(() => modal.classList.add('pointer-events-none'), 300);
+}
+
+// Menutup modal dengan tombol ESC
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !document.getElementById('modalQris').classList.contains('pointer-events-none')) {
+        closeModalQris();
+    }
+});
+
+// --- 4. Fungsi Utility Salin ID untuk User ---
+function copyInstallId() {
+    const installId = localStorage.getItem(LS_KEY_INSTALL);
+    if (!installId) return;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(installId).then(() => showToast("ID Aplikasi disalin!", "info"));
+    }
+}
+
+// =========================================================================
+// --- FUNGSI ASLI YANG DIUPDATE/DIPERTAHANKAN ---
+// =========================================================================
+
+// Generate UUID sederhana jika belum ada (Dipanggil saat init)
+function generateUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }); }
+
+// Verifikasi Lisensi via RSA SHA-256 (KODE ASLI ANDA, SEDIKIT DIUPDATE VARIABELNYA)
 function validateLicenseKey(installId, licenseKey) {
     if (!licenseKey || !installId) return { isValid: false };
-    if (PUBLIC_KEY.includes("...")) {
-        console.error("VALIDASI LISENSI DILONCATI: Kunci Publik belum diatur!");
-        return { isValid: true, expires: 'permanent' }; // Loncat validasi jika kunci publik belum diisi
+    if (RSA_PUBLIC_KEY.includes("...")) {
+        console.error("VALIDASI DILONCATI: Kunci Publik belum diatur di index.html!");
+        return { isValid: true, expires: 'permanent' };
     }
 
     try {
         const decodedKey = atob(licenseKey);
         const parts = decodedKey.split('|');
-        
-        // Format: installId|expiryDate|signatureHex
         if (parts.length !== 3) return { isValid: false, reason: "Format kunci salah." };
 
-        const keyInstallId = parts[0];
-        const expiryDateStr = parts[1];
-        const signatureHex = parts[2];
+        const keyInstallId = parts[0], expiryDateStr = parts[1], signatureHex = parts[2];
 
-        // 1. Periksa apakah kunci lisensi ini untuk instalasi yang benar
-        if (keyInstallId !== installId) {
-            return { isValid: false, reason: "Kunci ini untuk ID Aplikasi yang berbeda." };
-        }
+        if (keyInstallId !== installId) return { isValid: false, reason: "Kunci ini untuk ID Aplikasi berbeda." };
 
-        const dataToVerify = keyInstallId + '|' + expiryDateStr;
-
-        // 2. Verifikasi tanda tangan digital
+        // Verifikasi tanda tangan digital RSA SHA-256 (Pakai library KJUR bawaan)
         const sig = new KJUR.crypto.Signature({ "alg": "SHA256withRSA" });
-        sig.init(PUBLIC_KEY);
-        sig.updateString(dataToVerify);
+        sig.init(RSA_PUBLIC_KEY);
+        sig.updateString(keyInstallId + '|' + expiryDateStr);
         const isValidSignature = sig.verify(signatureHex);
 
-        if (!isValidSignature) {
-            return { isValid: false, reason: "Tanda tangan tidak valid." };
-        }
+        if (!isValidSignature) return { isValid: false, reason: "Tanda tangan tidak valid." };
 
-        // 3. Jika tanda tangan valid, periksa tanggal kedaluwarsa
         const expiryDate = new Date(expiryDateStr + 'T23:59:59');
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
 
-        if (expiryDate < today) {
-            return { isValid: false, isExpired: true, expires: expiryDateStr };
-        }
+        if (expiryDate < today) return { isValid: false, isExpired: true, expires: expiryDateStr };
 
-        // Jika semua lolos, lisensi valid
         return { isValid: true, expires: expiryDateStr };
-
     } catch (e) {
-        console.error("Error validasi lisensi:", e);
-        return { isValid: false, reason: "Error saat memproses kunci." };
+        console.error("Error validasi:", e);
+        return { isValid: false, reason: "Error memproses kunci." };
     }
 }
 
+// Fungsi Aktivasi Tombol di Panel Toko (KODE ASLI ANDA)
 function activateLicense() {
-    const installId = localStorage.getItem(LS_INSTALL_ID);
+    const installId = localStorage.getItem(LS_KEY_INSTALL);
     const licenseKey = document.getElementById('iLicenseKey').value.trim();
     const statusEl = document.getElementById('licenseStatus');
     if (!licenseKey) return;
@@ -664,82 +774,81 @@ function activateLicense() {
     const validationResult = validateLicenseKey(installId, licenseKey);
 
     if (validationResult.isValid) {
-        localStorage.setItem(LS_LICENSE_KEY, licenseKey);
-        localStorage.setItem(LS_LICENSE_STATUS, "VALID");
-        localStorage.setItem(LS_LICENSE_EXPIRY, validationResult.expires);
-        
+        localStorage.setItem(LS_KEY_LICENSE, licenseKey);
         const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
-        const successMsg = `Lisensi berhasil diaktifkan hingga ${tgl}. Terima kasih!`;
-        
-        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> ${successMsg}`;
+        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> Lisensi Aktif s/d ${tgl}.`;
         statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-green-100 text-green-800';
         document.getElementById('licenseArea').style.display = 'none';
-        closeToast();
+        closeToast(); // Tutup donationToast jika sedang terbuka
     } else if (validationResult.isExpired) {
-        const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
-        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi telah kedaluwarsa pada ${tgl}.`;
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Lisensi kadaluwarsa.`;
         statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800';
     } else {
-        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci lisensi tidak valid. ${validationResult.reason || ''}`;
+        statusEl.innerHTML = `<i class="fas fa-times-circle text-red-500"></i> Kunci tidak valid. ${validationResult.reason || ''}`;
         statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-red-100 text-red-800';
     }
 }
 
-function showDonationToast() {
-    const toast = document.getElementById('donationToast');
-    if (toast) {
-        toast.classList.remove('translate-x-[150%]');
-        toast.classList.add('translate-x-0');
-    }
-}
+function showDonationToast() { document.getElementById('donationToast')?.classList.remove('translate-x-[150%]'); }
+function closeToast() { document.getElementById('donationToast')?.classList.add('translate-x-[150%]'); }
 
-function closeToast() {
-    const toast = document.getElementById('donationToast');
-    if (toast) {
-        toast.classList.remove('translate-x-0');
-        toast.classList.add('translate-x-[150%]');
-    }
-}
-
+// Inisialisasi Sistem saat Aplikasi Dibuka (KODE ASLI ANDA, SEDIKIT DIUPDATE VARIABELNYA)
 function initLicenseSystem() {
-    let installId = localStorage.getItem(LS_INSTALL_ID);
+    let installId = localStorage.getItem(LS_KEY_INSTALL);
     if (!installId) {
         installId = generateUUID();
-        localStorage.setItem(LS_INSTALL_ID, installId);
+        localStorage.setItem(LS_KEY_INSTALL, installId);
     }
     document.getElementById('installationId').textContent = installId;
 
-    const licenseKey = localStorage.getItem(LS_LICENSE_KEY);
+    const licenseKey = localStorage.getItem(LS_KEY_LICENSE);
+    const licenseArea = document.getElementById('licenseArea');
+    const statusEl = document.getElementById('licenseStatus');
+
     if (!licenseKey) {
-        setTimeout(showDonationToast, 5000); // Tampilkan donasi jika belum ada lisensi
+        setTimeout(showDonationToast, 5000); // Tampilkan popup donasi/pembelian
         return;
     }
 
     const validationResult = validateLicenseKey(installId, licenseKey);
-    const licenseArea = document.getElementById('licenseArea');
-    const statusEl = document.getElementById('licenseStatus');
 
     if (validationResult.isValid) {
         licenseArea.style.display = 'none';
         const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
-        const statusMsg = `<i class="fas fa-check-circle text-green-500"></i> Status: <span class="font-bold">Premium</span> (Aktif s/d ${tgl})`;
-        statusEl.innerHTML = statusMsg;
+        statusEl.innerHTML = `<i class="fas fa-check-circle text-green-500"></i> Status: <span class="font-bold">Premium</span> (s/d ${tgl})`;
         statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-blue-100 text-blue-800';
     } else {
-        localStorage.setItem(LS_LICENSE_STATUS, "EXPIRED");
-        let expiredMsg = 'Lisensi Anda tidak valid atau untuk ID Aplikasi yang lain.';
-        if (validationResult.isExpired) {
-            const tgl = new Date(validationResult.expires).toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
-            expiredMsg = `Lisensi Anda telah kedaluwarsa pada ${tgl}. Silakan perbarui.`;
-        }
-        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-600"></i> ${expiredMsg}`;
+        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-600"></i> Lisensi tidak valid/kadaluwarsa.`;
         statusEl.className = 'p-3 rounded-lg mt-2 text-center text-sm bg-yellow-100 text-yellow-800';
         setTimeout(showDonationToast, 3000);
     }
 }
 </script>
+<div id="modalQris" class="fixed inset-0 bg-black bg-opacity-60 z-[110] flex justify-center items-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center transform scale-95 transition-transform duration-300" id="modalQrisContent">
+        <h3 class="font-bold text-xl text-gray-800 mb-2 flex items-center justify-center gap-2"><i class="fas fa-shield-alt text-green-600"></i> Aktivasi Premium</h3>
+        <p class="text-sm text-gray-600 mb-4">Scan QRIS nominal <strong class="text-gray-900">Rp 30.000</strong> via e-wallet/m-banking untuk lisensi 6 Bulan.</p>
+        
+        <div id="qrisLoading" class="my-10">
+            <i class="fas fa-spinner fa-spin text-4xl text-green-600"></i>
+            <p class="text-sm mt-3 text-gray-500">Menghubungkan ke Pakasir...</p>
+        </div>
 
+        <div id="qrisContainer" class="hidden">
+            <div class="p-2 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50 mb-4">
+                <img id="qrisImage" src="" alt="QRIS Code" class="mx-auto w-56 h-56 rounded-lg">
+            </div>
+            <div id="qrisStatusBox" class="p-3 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200">
+                <p id="qrisStatus" class="font-semibold text-sm animate-pulse"><i class="fas fa-history"></i> Menunggu Pembayaran...</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-6">
+             <button onclick="closeModalQris()" id="btnBatalQris" class="w-full bg-gray-100 text-gray-700 font-semibold py-2 rounded-lg hover:bg-gray-200 transition-colors">Batal</button>
+             <button onclick="copyInstallId()" class="w-full bg-blue-50 text-blue-700 font-semibold py-2 rounded-lg hover:bg-blue-100 transition-colors text-xs flex items-center justify-center gap-1"><i class="fas fa-copy"></i> Salin ID</button>
+        </div>
+    </div>
+</div>
 </body>
     </html>
-
 
