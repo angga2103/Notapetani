@@ -578,6 +578,7 @@ function updateBackupCardStatus() { const statusEl = document.getElementById('ba
 // =========================================================================
 
 // 1. Fungsi Format Teks ke ESC/POS Byte Array
+// 1. Fungsi Format Teks ke ESC/POS Byte Array (DIUBAH MENYAMAI VIEW)
 function generateESCPOS(data) {
     let receipt = [];
     const ESC = 0x1B; 
@@ -589,63 +590,21 @@ function generateESCPOS(data) {
         const bytes = new TextEncoder().encode(text);
         for(let b of bytes) receipt.push(b);
     };
-    const addLine = (text = "") => { addText(text + "\n"); };
 
     // Inisialisasi Printer
     addCmd([ESC, 0x40]); 
     
-    // --- HEADER (Rata Tengah) ---
-    addCmd([ESC, 0x61, 1]); // Align Center
-    addCmd([ESC, 0x45, 1]); // Bold ON
-    addLine(data.nama);
-    addCmd([ESC, 0x45, 0]); // Bold OFF
-    addLine(data.alamat);
-    addLine("WA: " + data.telp);
-    addLine("--------------------------------"); // Pas 32 Karakter
+    // Set Rata Kiri (karena spasi rata kanan-kiri sudah dihitung rapi oleh sistem View)
+    addCmd([ESC, 0x61, 0]); 
+
+    // Ambil teks PERSIS dari kotak "Pratinjau Cepat / View"
+    const teksNota = document.getElementById('previewNota').textContent;
+
+    // Masukkan teks ke dalam perintah cetak
+    addText(teksNota);
     
-    // --- BODY (Rata Kiri) ---
-    addCmd([ESC, 0x61, 0]); // Align Left
-    if (data.petani) addLine("Plg : " + data.petani.substring(0, 26));
-    addLine("Tgl : " + formatTanggalNota(data.tanggal));
-    addLine("--------------------------------");
-    
-    // --- ITEMS ---
-    let grandTotal = 0;
-    let totalItem = 0;
-    
-    (data.barang || []).forEach(b => {
-        if (!b.nama) return;
-        let qty = parseFloatSafe(b.qty);
-        let harga = parseFloatSafe(b.harga);
-        let total = qty * harga;
-        grandTotal += total;
-        totalItem++;
-        
-        // Baris 1: Nama Barang
-        addLine(b.nama.substring(0, 32));
-        
-        // Baris 2: Qty x Harga [Spasi] Total (Rata Kanan Kiri)
-        let qtyStr = (qty % 1 === 0) ? qty : qty.toFixed(2).replace(".",",");
-        let detailStr = `${qtyStr} ${b.satuan} x ${formatRupiah(harga)}`;
-        let totalStr = formatRupiah(total);
-        addLine(padBoth(detailStr, totalStr, 32));
-    });
-    
-    addLine("--------------------------------");
-    
-    // --- FOOTER SUMMARY ---
-    addCmd([ESC, 0x45, 1]); // Bold ON
-    addLine(padBoth("TOTAL", "Rp " + formatRupiah(grandTotal), 32));
-    addCmd([ESC, 0x45, 0]); // Bold OFF
-    addLine("Item: " + totalItem);
-    addLine("--------------------------------");
-    
-    // Rata Tengah untuk Penutup
-    addCmd([ESC, 0x61, 1]); // Align Center
-    addLine("Terima Kasih");
-    
-    // Feed Kertas 3 baris agar mudah disobek
-    addLine("\n\n\n");
+    // Feed Kertas 3 baris agar kertas keluar dan mudah disobek
+    addText("\n\n\n");
     
     return new Uint8Array(receipt);
 }
