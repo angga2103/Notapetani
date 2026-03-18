@@ -568,22 +568,23 @@ function updateBackupCardStatus() { const statusEl = document.getElementById('ba
 // --- SYSTEM AKTIVASI OTOMATIS QRIS & LISENSI ---
 // =========================================================================
 
-// Variabel Global Baru
 let checkPaymentInterval;
+let countdownInterval; // Variabel baru untuk timer mundur
 let currentTrxId = null;
 
-// Konfigurasi Link Publik Backend Termux Anda (Via Cloudflare Tunnel)
 const BACKEND_URL = "https://notapetani.kasiron.my.id"; 
 const URL_BACKEND_CREATE = `${BACKEND_URL}/api/create_qris`; 
 const URL_BACKEND_CHECK = `${BACKEND_URL}/api/check_qris`;
+const URL_BACKEND_CANCEL = `${BACKEND_URL}/api/cancel_qris`; // Endpoint pembatalan
 
-// Variabel LocalStorage Keys
 const LS_KEY_INSTALL = "conf_installId";
 const LS_KEY_LICENSE = "conf_licenseKey";
 
+// BATAS WAKTU 5 MENIT (dalam milidetik)
+const EXPIRE_TIME_MS = 5 * 60 * 1000; 
+
 // =========================================================================
-// == PENTING: Gunakan Kunci Publik (Public Key) RSA Anda sendiri! ==
-// == Harus pasangan dari Private Key yang ada di Termux server.js  ==
+// KUNCI PUBLIK (JANGAN DIUBAH, SUDAH MENGGUNAKAN MILIK ANDA)
 // =========================================================================
 const RSA_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBlaoHnhEdDnnPP5OpljhmL
@@ -596,22 +597,41 @@ AgMBAAE=
 -----END PUBLIC KEY-----`;
 // =========================================================================
 
-
 // --- 1. Fungsi Utama: Mulai Proses Pembelian ---
 async function beliLisensiOtomatis() {
     const installId = localStorage.getItem(LS_KEY_INSTALL);
     if (!installId) { showToast("ID Aplikasi tidak ditemukan.", "error"); return; }
     
-    // Tampilkan Modal & State Loading
     const modal = document.getElementById('modalQris');
     const modalContent = document.getElementById('modalQrisContent');
-    document.getElementById('qrisLoading').classList.remove('hidden');
-    document.getElementById('qrisContainer').classList.add('hidden');
+    const loadingEl = document.getElementById('qrisLoading');
+    const containerEl = document.getElementById('qrisContainer');
+
     modal.classList.remove('opacity-0', 'pointer-events-none');
     modalContent.classList.remove('scale-95');
 
+    // Cek apakah ada QRIS yang belum 5 menit
+    const pendingDataStr = localStorage.getItem('pending_qris_data');
+    if (pendingDataStr) {
+        const pendingData = JSON.parse(pendingDataStr);
+        if (Date.now() < pendingData.expire_time) {
+            document.getElementById('qrisImage').src = pendingData.qris_url;
+            currentTrxId = pendingData.trx_id;
+            
+            loadingEl.classList.add('hidden');
+            containerEl.classList.remove('hidden');
+            
+            mulaiPollingCekPembayaran(installId, currentTrxId, pendingData.expire_time);
+            return; 
+        } else {
+            localStorage.removeItem('pending_qris_data');
+        }
+    }
+
+    loadingEl.classList.remove('hidden');
+    containerEl.classList.add('hidden');
+
     try {
-        // Minta QRIS ke Backend Termux Anda
         const response = await fetch(URL_BACKEND_CREATE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -621,34 +641,62 @@ async function beliLisensiOtomatis() {
         const data = await response.json();
         
         if (data.success && data.qris_url) {
-            // Tampilkan Gambar QRIS
             document.getElementById('qrisImage').src = data.qris_url;
-            currentTrxId = data.trx_id; // Simpan ID transaksi dari Pakasir
+            currentTrxId = data.trx_id; 
             
-            document.getElementById('qrisLoading').classList.add('hidden');
-            document.getElementById('qrisContainer').classList.remove('hidden');
+            // Simpan waktu kadaluwarsa (Sekarang + 5 Menit)
+            const targetExpireTime = Date.now() + EXPIRE_TIME_MS;
             
-            // Mulai mengecek status pembayaran setiap 5 detik
-            mulaiPollingCekPembayaran(installId, currentTrxId);
+            const newData = { trx_id: currentTrxId, qris_url: data.qris_url, expire_time: targetExpireTime };
+            localStorage.setItem('pending_qris_data', JSON.stringify(newData));
+
+            loadingEl.classList.add('hidden');
+            containerEl.classList.remove('hidden');
+            
+            mulaiPollingCekPembayaran(installId, currentTrxId, targetExpireTime);
         } else {
-            showToast("Gagal terhubung ke Pakasir: " + (data.message || "Error"), "error");
+            showToast("Gagal terhubung ke Pakasir.", "error");
             closeModalQris();
         }
     } catch (err) {
-        console.error("Error Fetch Create:", err);
-        showToast("Gagal menghubungi server Anda (Cek Termux & Tunnel).", "error");
+        showToast("Gagal menghubungi server Anda.", "error");
         closeModalQris();
     }
 }
 
-// --- 2. Fungsi Polling: Mengecek Pembayaran ke Backend ---
-function mulaiPollingCekPembayaran(installId, trxId) {
-    clearInterval(checkPaymentInterval); // Pastikan tidak ada interval ganda
+// --- 2. Fungsi Polling & Timer Mundur ---
+function mulaiPollingCekPembayaran(installId, trxId, expireTime) {
+    clearInterval(checkPaymentInterval); 
+    clearInterval(countdownInterval);
     
-    // UI Update PENDING
     const statusText = document.getElementById('qrisStatus');
     const statusBox = document.getElementById('qrisStatusBox');
+    const timerText = document.getElementById('qrisTimer');
     
+    // Kembalikan UI ke mode "Menunggu"
+    statusText.innerHTML = `<i class="fas fa-history"></i> Menunggu Pembayaran...`;
+    statusText.classList.add('animate-pulse');
+    statusBox.className = "p-3 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200";
+    if(timerText) timerText.classList.remove('hidden');
+
+    // A. LOGIKA TIMER MUNDUR 5 MENIT
+    countdownInterval = setInterval(() => {
+        const distance = expireTime - Date.now();
+
+        if (distance <= 0) {
+            // WAKTU HABIS! Batalkan otomatis
+            clearInterval(countdownInterval);
+            if(timerText) timerText.textContent = "00:00";
+            batalkanTransaksiAPI(trxId, "Waktu Habis. Silakan buat QRIS baru.");
+        } else {
+            // Tampilkan menit dan detik
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            if(timerText) timerText.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+    }, 1000);
+
+    // B. LOGIKA POLLING CEK PEMBAYARAN
     checkPaymentInterval = setInterval(async () => {
         try {
             const response = await fetch(URL_BACKEND_CHECK, {
@@ -656,47 +704,68 @@ function mulaiPollingCekPembayaran(installId, trxId) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ trx_id: trxId, install_id: installId })
             });
-            
             const data = await response.json();
             
             if (data.status === 'PAID') {
-                // BERHASIL LUNAS!
                 clearInterval(checkPaymentInterval);
+                clearInterval(countdownInterval);
+                localStorage.removeItem('pending_qris_data'); 
                 
-                // Update UI SUKSES
                 statusText.innerHTML = `<i class="fas fa-check-circle"></i> Pembayaran Sukses!`;
                 statusText.classList.remove('animate-pulse');
                 statusBox.className = "p-3 rounded-lg bg-green-100 text-green-800 border border-green-200";
+                if(timerText) timerText.classList.add('hidden'); // Sembunyikan timer kalau lunas
                 
-                // Masukkan Kunci Lisensi baru yang dikirim backend
                 if (data.license_key) {
                     document.getElementById('iLicenseKey').value = data.license_key;
-                    // Aktifkan lisensi secara otomatis (memanggil fungsi asli activateLicense)
                     activateLicense(); 
-                    
-                    setTimeout(() => {
-                        closeModalQris();
-                        showToast("Terima kasih! Lisensi Premium diaktifkan.", "success", 5000);
-                    }, 2000);
+                    setTimeout(() => { closeModalQris(); showToast("Terima kasih! Premium diaktifkan.", "success", 5000); }, 2000);
                 }
             } else if (data.status === 'EXPIRED') {
-                // TRANSAKSI KADALUWARSA
-                clearInterval(checkPaymentInterval);
-                statusText.innerHTML = `<i class="fas fa-times-circle"></i> Waktu Habis / Kadaluwarsa.`;
-                statusText.classList.remove('animate-pulse');
-                statusBox.className = "p-3 rounded-lg bg-red-100 text-red-800 border border-red-200";
+                batalkanTransaksiAPI(trxId, "Dibatalkan oleh sistem Pakasir.");
             }
-            // Jika status masih PENDING, biarkan interval berjalan
-        } catch (err) {
-            console.error("Gagal mengecek status", err);
-            // Diamkan error jaringan agar polling tidak berhenti total
-        }
-    }, 5000); // Cek setiap 5 detik
+        } catch (err) {}
+    }, 5000);
 }
 
-// --- 3. Fungsi Utility Modal ---
+// --- 3. Fungsi Membatalkan Transaksi ke Backend Pakasir ---
+async function batalkanTransaksiAPI(trxId, pesanInfo) {
+    clearInterval(checkPaymentInterval);
+    clearInterval(countdownInterval);
+    localStorage.removeItem('pending_qris_data');
+
+    const statusText = document.getElementById('qrisStatus');
+    const statusBox = document.getElementById('qrisStatusBox');
+    const timerText = document.getElementById('qrisTimer');
+    
+    statusText.innerHTML = `<i class="fas fa-times-circle"></i> ${pesanInfo}`;
+    statusText.classList.remove('animate-pulse');
+    statusBox.className = "p-3 rounded-lg bg-red-100 text-red-800 border border-red-200";
+    if(timerText) timerText.classList.add('hidden');
+    
+    // Tembak API Cancel ke Server Termux secara senyap
+    if (trxId) {
+        try {
+            await fetch(URL_BACKEND_CANCEL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trx_id: trxId })
+            });
+        } catch(e) {}
+    }
+}
+
+// --- 4. Fungsi Utility Modal & Tombol Batal ---
 function closeModalQris() {
-    clearInterval(checkPaymentInterval); // Stop nge-ping server
+    // Jika user klik "Batal" dan ada transaksi aktif, batalkan di Pakasir juga
+    const pendingDataStr = localStorage.getItem('pending_qris_data');
+    if (pendingDataStr) {
+        const pendingData = JSON.parse(pendingDataStr);
+        batalkanTransaksiAPI(pendingData.trx_id, "Dibatalkan oleh pengguna.");
+    } else if (currentTrxId) {
+        batalkanTransaksiAPI(currentTrxId, "Dibatalkan oleh pengguna.");
+    }
+
     const modal = document.getElementById('modalQris');
     const modalContent = document.getElementById('modalQrisContent');
     modal.classList.add('opacity-0');
@@ -704,14 +773,13 @@ function closeModalQris() {
     setTimeout(() => modal.classList.add('pointer-events-none'), 300);
 }
 
-// Menutup modal dengan tombol ESC
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !document.getElementById('modalQris').classList.contains('pointer-events-none')) {
         closeModalQris();
     }
 });
 
-// --- 4. Fungsi Utility Salin ID untuk User ---
+// --- 5. Fungsi Utility Salin ID untuk User ---
 function copyInstallId() {
     const installId = localStorage.getItem(LS_KEY_INSTALL);
     if (!installId) return;
@@ -840,7 +908,9 @@ function initLicenseSystem() {
             </div>
             <div id="qrisStatusBox" class="p-3 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200">
                 <p id="qrisStatus" class="font-semibold text-sm animate-pulse"><i class="fas fa-history"></i> Menunggu Pembayaran...</p>
+				<p id="qrisTimer" class="font-bold text-2xl text-red-600 mt-1 text-center">05:00</p>
             </div>
+			
         </div>
 
         <div class="grid grid-cols-2 gap-3 mt-6">
@@ -851,4 +921,3 @@ function initLicenseSystem() {
 </div>
 </body>
     </html>
-
